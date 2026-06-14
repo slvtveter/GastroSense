@@ -76,7 +76,7 @@ st.sidebar.markdown("<p style='text-align: center; color: #8a909d;'>SaaS-пла�
 st.sidebar.markdown("---")
 
 # Health check connection status
-backend_status = get_data("/")
+backend_status = get_data("/analytics/stats")
 if backend_status:
     st.sidebar.success("🟢 Бэкенд API: Подключено")
 else:
