@@ -219,6 +219,16 @@ else:
             df_hist["date"] = pd.to_datetime(df_hist["date"])
             df_fore["date"] = pd.to_datetime(df_fore["date"])
             
+            # Cast decimal strings to numeric types
+            df_hist["revenue"] = pd.to_numeric(df_hist["revenue"], errors="coerce").fillna(0.0)
+            df_hist["orders_count"] = pd.to_numeric(df_hist["orders_count"], errors="coerce").fillna(0).astype(int)
+            
+            df_fore["predicted_revenue"] = pd.to_numeric(df_fore["predicted_revenue"], errors="coerce").fillna(0.0)
+            df_fore["predicted_orders"] = pd.to_numeric(df_fore["predicted_orders"], errors="coerce").fillna(0).astype(int)
+            df_fore["lower_bound_revenue"] = pd.to_numeric(df_fore["lower_bound_revenue"], errors="coerce").fillna(0.0)
+            df_fore["upper_bound_revenue"] = pd.to_numeric(df_fore["upper_bound_revenue"], errors="coerce").fillna(0.0)
+
+            
             # Interactive Line Chart with Confidence Bands
             fig = go.Figure()
             
@@ -309,6 +319,11 @@ else:
         if menu_data:
             df_menu = pd.DataFrame(menu_data)
             
+            # Cast decimal strings to numeric types
+            df_menu["popularity_sales"] = pd.to_numeric(df_menu["popularity_sales"], errors="coerce").fillna(0).astype(int)
+            df_menu["avg_margin"] = pd.to_numeric(df_menu["avg_margin"], errors="coerce").fillna(0.0)
+            df_menu["total_revenue"] = pd.to_numeric(df_menu["total_revenue"], errors="coerce").fillna(0.0)
+            
             # Plotly scatter plot
             colors_map = {
                 "Stars": "#f59e0b",       # Gold
@@ -319,7 +334,8 @@ else:
             
             # Dashed lines for median separation
             median_pop = df_menu["popularity_sales"].median()
-            median_margin = df_menu["avg_margin"].astype(float).median()
+            median_margin = df_menu["avg_margin"].median()
+
             
             fig = px.scatter(
                 df_menu,
