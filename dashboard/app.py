@@ -48,7 +48,7 @@ st.markdown("""
         margin-bottom: 15px;
     }
 </style>
-""", unsafe_allowed_html=True)
+""", unsafe_allow_html=True)
 
 # Connection Settings
 BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000/api/v1")
@@ -71,8 +71,8 @@ def post_data(endpoint: str, files=None):
         return {"success": False, "message": f"Connection error: {str(e)}"}
 
 # ----------------- SIDEBAR -----------------
-st.sidebar.markdown("<h1 style='text-align: center; color: #ff4b4b;'>🍷 GastroSense</h1>", unsafe_allowed_html=True)
-st.sidebar.markdown("<p style='text-align: center; color: #8a909d;'>SaaS-платформа ресторанного ML-анализа</p>", unsafe_allowed_html=True)
+st.sidebar.markdown("<h1 style='text-align: center; color: #ff4b4b;'>🍷 GastroSense</h1>", unsafe_allow_html=True)
+st.sidebar.markdown("<p style='text-align: center; color: #8a909d;'>SaaS-платформа ресторанного ML-анализа</p>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 
 # Health check connection status
@@ -94,7 +94,7 @@ if st.sidebar.button("🚀 Запустить демо-режим (1 клик)",
         else:
             st.sidebar.error(f"Ошибка: {res.get('message')}")
 
-st.sidebar.markdown("<p style='text-align: center; color: #8a909d; font-size: 12px;'>Или загрузите собственную CRM-выгрузку:</p>", unsafe_allowed_html=True)
+st.sidebar.markdown("<p style='text-align: center; color: #8a909d; font-size: 12px;'>Или загрузите собственную CRM-выгрузку:</p>", unsafe_allow_html=True)
 
 # CRM File uploader
 uploaded_file = st.sidebar.file_uploader(
@@ -131,8 +131,8 @@ stats = get_data("/analytics/stats")
 
 if not stats or stats.get("total_orders", 0) == 0:
     # --- Landing Page / Setup Guide ---
-    st.markdown("<h2 style='text-align: center;'>Добро пожаловать в GastroSense! 👋</h2>", unsafe_allowed_html=True)
-    st.markdown("<p style='text-align: center; font-size: 18px; color: #8a909d;'>Профессиональная ML-аналитика для ресторанного бизнеса.</p>", unsafe_allowed_html=True)
+    st.markdown("<h2 style='text-align: center;'>Добро пожаловать в GastroSense! 👋</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-size: 18px; color: #8a909d;'>Профессиональная ML-аналитика для ресторанного бизнеса.</p>", unsafe_allow_html=True)
     
     st.info("💡 **Как начать работу:** Для работы платформы необходимы исторические чеки. Запустите демо-режим в боковой панели слева (кнопка **'Запустить демо-режим (1 клик)'**), либо загрузите свою CRM-выгрузку.")
     
@@ -157,8 +157,8 @@ if not stats or stats.get("total_orders", 0) == 0:
     # Showcase images if we had any, otherwise keep it clean.
 else:
     # --- Live Dashboard ---
-    st.markdown("<h1 style='margin-bottom: 0px;'>📊 Дашборд ресторанной аналитики</h1>", unsafe_allowed_html=True)
-    st.markdown("<p style='color: #8a909d; margin-bottom: 25px;'>Анализ заведения: <strong>True Burgers</strong> (демо-режим)</p>", unsafe_allowed_html=True)
+    st.markdown("<h1 style='margin-bottom: 0px;'>📊 Дашборд ресторанной аналитики</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #8a909d; margin-bottom: 25px;'>Анализ заведения: <strong>True Burgers</strong> (демо-режим)</p>", unsafe_allow_html=True)
     
     # 1. KPI Cards Row
     col_rev, col_ord, col_chk, col_item = st.columns(4)
@@ -169,7 +169,7 @@ else:
             <div class="metric-title">Общая Выручка</div>
             <div class="metric-value">{stats.get('total_revenue'):,.2f} ₽</div>
         </div>
-        """, unsafe_allowed_html=True)
+        """, unsafe_allow_html=True)
         
     with col_ord:
         st.markdown(f"""
@@ -177,7 +177,7 @@ else:
             <div class="metric-title">Всего заказов</div>
             <div class="metric-value">{stats.get('total_orders'):,}</div>
         </div>
-        """, unsafe_allowed_html=True)
+        """, unsafe_allow_html=True)
         
     with col_chk:
         st.markdown(f"""
@@ -185,7 +185,7 @@ else:
             <div class="metric-title">Средний чек</div>
             <div class="metric-value">{stats.get('avg_check'):,.2f} ₽</div>
         </div>
-        """, unsafe_allowed_html=True)
+        """, unsafe_allow_html=True)
         
     with col_item:
         st.markdown(f"""
@@ -193,9 +193,9 @@ else:
             <div class="metric-title">Позиций продано</div>
             <div class="metric-value">{stats.get('total_items_sold'):,} шт.</div>
         </div>
-        """, unsafe_allowed_html=True)
+        """, unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allowed_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # Tabs
     tab_forecast, tab_menu, tab_assoc, tab_data = st.tabs([
@@ -283,7 +283,7 @@ else:
                 <p>Прогноз выручки: <strong>{peak_day['predicted_revenue']:,.2f} ₽</strong> (+{growth_pct:.1f}% к среднему за неделю).</p>
                 <p>⚠️ <strong>Рекомендация менеджеру:</strong> Рекомендуется вывести дополнительного повара в смену и проверить запасы скоропортящихся ингредиентов (мясо, булки, зелень) на этот день.</p>
             </div>
-            """, unsafe_allowed_html=True)
+            """, unsafe_allow_html=True)
             
             # Grid of forecast details
             st.subheader("Таблица детального прогноза спроса")
@@ -452,7 +452,7 @@ else:
                     <p>Вероятность покупки: При заказе <strong>{best_pair[0]}</strong>, клиент покупает <strong>{best_pair[1]}</strong> в <strong>{max_val:.1%}</strong> случаев.</p>
                     <p>💡 <strong>Маркетинговое решение:</strong> Создайте комбо-набор с этими позициями или настройте POS-систему (терминал официанта) так, чтобы она автоматически предлагала <em>{best_pair[1]}</em> при выборе <em>{best_pair[0]}</em>.</p>
                 </div>
-                """, unsafe_allowed_html=True)
+                """, unsafe_allow_html=True)
         else:
             st.info("⚠️ Недостаточно данных для построения карты ассоциаций. Добавьте больше разнообразных чеков.")
 
