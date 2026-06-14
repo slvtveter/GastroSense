@@ -4,6 +4,7 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sqlalchemy.orm import Session
 from app.models import OrderItem
+from app.logger import logger, log_execution_time
 from typing import List, Dict, Any
 
 def get_food_cost_margin_factor(item_name: str, category: str) -> float:
@@ -29,12 +30,17 @@ def get_food_cost_margin_factor(item_name: str, category: str) -> float:
     
     return 0.65  # Default 65% margin
 
+@log_execution_time("Menu Engineering K-Means")
 def run_menu_engineering(db: Session) -> List[Dict[str, Any]]:
     """Query order items, aggregate metrics, run K-Means, and assign quadrants."""
     # 1. Fetch order items from database
     items = db.query(OrderItem).all()
     if not items:
+        logger.warning("No items found in database for Menu Engineering.")
         return []
+    
+    logger.info(f"Loaded {len(items)} sales records from database. Running aggregation...")
+
     
     # Convert to DataFrame
     data = []
@@ -71,7 +77,7 @@ def run_menu_engineering(db: Session) -> List[Dict[str, Any]]:
     # Run K-Means with 4 clusters
     n_clusters = min(4, len(agg_df))
     if n_clusters < 4:
-        # If menu is too small, fallback to simple median splitting without K-Means
+        logger.info(f"Unique menu items ({len(agg_df)}) < 4. Falling back to median split classification.")
         median_pop = agg_df["popularity_sales"].median()
         median_margin = agg_df["avg_margin"].median()
         
@@ -98,6 +104,7 @@ def run_menu_engineering(db: Session) -> List[Dict[str, Any]]:
             })
         return results
     
+    logger.info(f"Running K-Means clustering (K=4) on {len(agg_df)} unique menu items...")
     kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
     agg_df["cluster"] = kmeans.fit_predict(scaled_features)
     
@@ -155,6 +162,11 @@ def run_menu_engineering(db: Session) -> List[Dict[str, Any]]:
         
     # Apply mapping
     agg_df["cluster_label"] = agg_df["cluster"].map(cluster_mapping)
+    
+    # Log cluster sizes for observability
+    sizes = agg_df["cluster_label"].value_counts().to_dict()
+    logger.info(f"K-Means clustering completed. Quadrant distribution: {sizes}")
+
     
     # Convert to list of dicts for CRUD insertion
     results = []

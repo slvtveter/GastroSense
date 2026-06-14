@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor
+from app.logger import logger, log_execution_time
 from typing import List, Dict, Any
 
 # Attempt to import LightGBM; fallback to RandomForest if unavailable
@@ -14,6 +15,7 @@ try:
 except ImportError:
     HAS_LIGHTGBM = False
 
+@log_execution_time("Time Series Demand Forecasting")
 def run_demand_forecast(db: Session, forecast_horizon: int = 7) -> List[Dict[str, Any]]:
     """Query daily sales, train ML model, and forecast revenue and order counts for next 7 days."""
     # 1. Fetch daily aggregated sales
@@ -28,8 +30,9 @@ def run_demand_forecast(db: Session, forecast_horizon: int = 7) -> List[Dict[str
     """
     result = db.execute(text(sql)).fetchall()
     if len(result) < 14:
-        # We need at least 14 days of data to build features and train a model
+        logger.warning(f"Insufficient historical data to run forecast. Need >= 14 days, found {len(result)}.")
         return []
+
     
     # 2. Convert to DataFrame and reindex to daily frequency
     df = pd.DataFrame(result, columns=["date", "revenue", "orders_count"])
@@ -99,6 +102,7 @@ def run_demand_forecast(db: Session, forecast_horizon: int = 7) -> List[Dict[str
     y_orders = train_data["orders_count"]
     
     # Choose ML Model (LightGBM with Random Forest fallback)
+    logger.info(f"Training Time Series models on {len(X_train)} historical days. Using LightGBM: {HAS_LIGHTGBM}")
     if HAS_LIGHTGBM:
         model_rev = lgb.LGBMRegressor(n_estimators=100, learning_rate=0.05, random_state=42, verbose=-1)
         model_ord = lgb.LGBMRegressor(n_estimators=100, learning_rate=0.05, random_state=42, verbose=-1)
@@ -112,6 +116,8 @@ def run_demand_forecast(db: Session, forecast_horizon: int = 7) -> List[Dict[str
     # Calculate RMSE of models to compute confidence intervals
     pred_rev_train = model_rev.predict(X_train)
     rmse_rev = np.sqrt(np.mean((y_revenue - pred_rev_train) ** 2))
+    logger.info(f"Forecasting models trained successfully. Training RMSE (Revenue): {rmse_rev:.2f} ₽")
+
     
     # 6. Autoregressive (recursive) forecasting loop for future dates
     for i in range(forecast_horizon):

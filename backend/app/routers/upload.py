@@ -9,26 +9,31 @@ from app.database import get_db
 from app.ml.menu_analyzer import run_menu_engineering
 from app.ml.forecaster import run_demand_forecast
 from app.ml.demo_seeder import seed_demo_data
+from app.logger import logger
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
 
 def run_async_ml_training(db: Session):
     """Run Menu Engineering and Demand Forecasting models and cache results in DB."""
+    logger.info("Starting background ML model training task...")
     try:
         # 1. Run K-Means Menu Engineering
         analyses = run_menu_engineering(db)
         if analyses:
             crud.update_menu_analysis(db, analyses)
+            logger.info(f"Successfully updated Menu Engineering results for {len(analyses)} items.")
             
         # 2. Run Time Series Forecasting
         forecasts = run_demand_forecast(db)
         if forecasts:
             crud.update_demand_forecast(db, forecasts)
+            logger.info(f"Successfully updated Demand Forecasts for next {len(forecasts)} days.")
             
-        print("ML models trained and cached successfully.")
+        logger.info("Background ML model training completed successfully.")
     except Exception as e:
-        print(f"Error running background ML tasks: {str(e)}")
+        logger.error(f"Error occurred during background ML training: {str(e)}")
+
 
 # Standardize column naming mappings for various CRM formats (iiko, R-Keeper, МойСклад)
 COLUMN_MAPPINGS = {
