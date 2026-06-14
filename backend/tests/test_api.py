@@ -35,6 +35,8 @@ def test_upload_csv(client: TestClient, db_session: Session):
     data = response.json()
     assert data["success"] is True
     assert data["orders_processed"] == 2
+
+
     assert data["items_processed"] == 3
     assert len(data["errors"]) == 0
     
