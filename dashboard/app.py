@@ -423,7 +423,7 @@ is_live = stats_data is not None and stats_data.get("total_orders", 0) > 0
 connection_class = "badge-live" if is_live else "badge-demo"
 connection_text = "Live Database" if is_live else "Demo Mode"
 
-col_logo, col_badge, col_crm, col_reset, col_profile = st.columns([2.5, 1.8, 1.2, 1.5, 0.4], vertical_alignment="center")
+col_logo, col_badge, col_crm, col_reset, col_profile = st.columns([2.5, 1.8, 1.2, 1.5, 0.4])
 
 with col_logo:
     st.html("""
