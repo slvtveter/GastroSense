@@ -21,10 +21,15 @@ st.html("""
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
     /* Global Styles - Force light background on all wrappers */
-    .stApp, div[data-testid="stAppViewContainer"], section.main, [data-testid="stHeader"] {
+    html, body, .stApp, div[data-testid="stAppViewContainer"], section.main, [data-testid="stHeader"], [data-testid="stAppViewBlockContainer"] {
         background-color: #f3f4f6 !important;
         color: #1f2937 !important;
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    }
+    
+    /* Force dark text for standard content readability on light background */
+    h1, h2, h3, h4, h5, h6, p, [data-testid="stMarkdownContainer"] p {
+        color: #1f2937 !important;
     }
     
     /* Hide Streamlit default header, footer and side margins */
@@ -38,7 +43,7 @@ st.html("""
         padding-bottom: 3rem !important;
         padding-left: 3.5rem !important;
         padding-right: 3.5rem !important;
-        max-width: 1400px !important;
+        max-width: 95% !important;
         margin: 0 auto !important;
     }
     
@@ -57,9 +62,6 @@ st.html("""
         align-items: center;
         gap: 12px;
     }
-    .logo-icon {
-        font-size: 26px;
-    }
     .logo-text {
         font-size: 20px;
         font-weight: 800;
@@ -77,20 +79,21 @@ st.html("""
         padding: 6px 14px;
         border-radius: 20px;
         letter-spacing: 0.5px;
+        display: inline-block;
     }
     .badge-live {
-        background-color: #d1fae5;
-        color: #065f46;
-        border: 1px solid #a7f3d0;
+        background-color: #d1fae5 !important;
+        color: #065f46 !important;
+        border: 1px solid #a7f3d0 !important;
     }
     .badge-demo {
-        background-color: #fef3c7;
-        color: #92400e;
-        border: 1px solid #fde68a;
+        background-color: #fef3c7 !important;
+        color: #92400e !important;
+        border: 1px solid #fde68a !important;
     }
     .profile-pic {
-        background-color: #1f2937;
-        color: #ffffff;
+        background-color: #1f2937 !important;
+        color: #ffffff !important;
         width: 36px;
         height: 36px;
         border-radius: 50%;
@@ -111,13 +114,10 @@ st.html("""
         border-bottom: 2px solid #e5e7eb;
         padding-bottom: 10px;
     }
-    .section-icon {
-        font-size: 24px;
-    }
     .section-title {
         font-size: 22px;
         font-weight: 800;
-        color: #111827;
+        color: #111827 !important;
         letter-spacing: -0.3px;
     }
 
@@ -145,18 +145,40 @@ st.html("""
         box-shadow: 0 8px 25px rgba(30, 30, 30, 0.25) !important;
     }
     
+    /* Metrics text color overrides */
+    div[data-testid="stVerticalBlockBorderWrapper"] .metric-label {
+        color: #6b7280 !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"] .metric-value {
+        color: #111827 !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"] .metric-subtext {
+        color: #9ca3af !important;
+    }
+    
+    /* Highlighted metrics text color overrides */
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.highlight-marker) .metric-label {
+        color: #9ca3af !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.highlight-marker) .metric-value {
+        color: #ffffff !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.highlight-marker) .metric-subtext {
+        color: #6b7280 !important;
+    }
+    
     /* Interactive combo recommendation card */
     .combo-card {
-        background-color: #f9fafb;
-        border: 1px dashed #d1d5db;
-        border-radius: 16px;
-        padding: 20px;
-        margin-top: 16px;
-        transition: all 0.2s ease;
+        background-color: #f9fafb !important;
+        border: 1px dashed #d1d5db !important;
+        border-radius: 16px !important;
+        padding: 20px !important;
+        margin-top: 16px !important;
+        transition: all 0.2s ease !important;
     }
     .combo-card:hover {
-        border-color: #1f2937;
-        background-color: #f3f4f6;
+        border-color: #1f2937 !important;
+        background-color: #f3f4f6 !important;
     }
     
     /* HTML Tables styling */
@@ -171,19 +193,19 @@ st.html("""
         font-size: 13px;
     }
     .premium-table th {
-        background-color: #f9fafb;
-        color: #4b5563;
-        font-weight: 700;
-        padding: 14px 16px;
-        border-bottom: 1px solid #e5e7eb;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        background-color: #f9fafb !important;
+        color: #4b5563 !important;
+        font-weight: 700 !important;
+        padding: 14px 16px !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
     }
     .premium-table td {
-        padding: 14px 16px;
-        border-bottom: 1px solid #f3f4f6;
-        color: #1f2937;
-        font-weight: 500;
+        padding: 14px 16px !important;
+        border-bottom: 1px solid #f3f4f6 !important;
+        color: #1f2937 !important;
+        font-weight: 500 !important;
     }
     .premium-table tr:hover {
         background-color: #f9fafb;
@@ -191,48 +213,48 @@ st.html("""
     
     /* Badge styling */
     .badge {
-        font-size: 10px;
-        font-weight: 800;
-        padding: 4px 10px;
-        border-radius: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: inline-block;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        padding: 4px 10px !important;
+        border-radius: 12px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        display: inline-block !important;
     }
     .badge-star {
-        background-color: #f3f4f6;
-        color: #1f2937;
-        border: 1px solid #d1d5db;
+        background-color: #f3f4f6 !important;
+        color: #1f2937 !important;
+        border: 1px solid #d1d5db !important;
     }
     .badge-workhorse {
-        background-color: #f9fafb;
-        color: #4b5563;
-        border: 1px solid #e5e7eb;
+        background-color: #f9fafb !important;
+        color: #4b5563 !important;
+        border: 1px solid #e5e7eb !important;
     }
     .badge-puzzle {
-        background-color: #f9fafb;
-        color: #9ca3af;
-        border: 1px solid #e5e7eb;
+        background-color: #f9fafb !important;
+        color: #9ca3af !important;
+        border: 1px solid #e5e7eb !important;
     }
     .badge-dog {
-        background-color: #fef2f2;
-        color: #ef4444;
-        border: 1px solid #fee2e2;
+        background-color: #fef2f2 !important;
+        color: #ef4444 !important;
+        border: 1px solid #fee2e2 !important;
     }
     
     /* Clean Progress Bars */
     .progress-bar-container {
-        width: 100%;
-        background-color: #f3f4f6;
-        border-radius: 8px;
-        height: 6px;
-        margin-top: 5px;
-        overflow: hidden;
+        width: 100% !important;
+        background-color: #f3f4f6 !important;
+        border-radius: 8px !important;
+        height: 6px !important;
+        margin-top: 5px !important;
+        overflow: hidden !important;
     }
     .progress-bar-fill {
-        height: 100%;
-        border-radius: 8px;
-        transition: width 0.3s ease;
+        height: 100% !important;
+        border-radius: 8px !important;
+        transition: width 0.3s ease !important;
     }
     
     /* Streamlit widgets overrides */
@@ -247,6 +269,20 @@ st.html("""
     }
     div[data-baseweb="select"] span, div[data-baseweb="select"] div {
         color: #1f2937 !important;
+    }
+    
+    /* Listbox options */
+    div[role="listbox"] {
+        background-color: #ffffff !important;
+    }
+    div[role="option"] {
+        background-color: #ffffff !important;
+    }
+    div[role="option"] span, div[role="option"] div {
+        color: #1f2937 !important;
+    }
+    div[role="option"]:hover {
+        background-color: #f3f4f6 !important;
     }
     
     /* Slider overrides */
@@ -284,6 +320,9 @@ st.html("""
         border-color: #1f2937 !important;
         color: #1f2937 !important;
     }
+    button[kind="secondary"] span, button[kind="secondary"] p {
+        color: #1f2937 !important;
+    }
     button[kind="primary"] {
         background-color: #1f2937 !important;
         color: #ffffff !important;
@@ -292,12 +331,15 @@ st.html("""
         padding: 8px 18px !important;
         font-weight: 700 !important;
         transition: all 0.2s ease !important;
-        box-shadow: 0 2px 8px rgba(31, 41, 55, 0.15);
+        box-shadow: 0 2px 8px rgba(31, 41, 55, 0.15) !important;
     }
     button[kind="primary"]:hover {
         background-color: #374151 !important;
-        box-shadow: 0 4px 12px rgba(31, 41, 55, 0.25);
-        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(31, 41, 55, 0.25) !important;
+        transform: translateY(-1px) !important;
+    }
+    button[kind="primary"] span, button[kind="primary"] p {
+        color: #ffffff !important;
     }
     
     /* Streamlit Alert message boxes */
@@ -305,6 +347,9 @@ st.html("""
         background-color: #ffffff !important;
         border: 1px solid #e5e7eb !important;
         border-radius: 12px !important;
+        color: #1f2937 !important;
+    }
+    div[data-testid="stNotification"] p, div[data-testid="stNotification"] span {
         color: #1f2937 !important;
     }
     
@@ -376,19 +421,76 @@ is_live = stats_data is not None and stats_data.get("total_orders", 0) > 0
 
 # Render Top Navigation Bar
 connection_class = "badge-live" if is_live else "badge-demo"
-connection_text = "🟢 Live Database (MySQL)" if is_live else "🟡 Demo Mode (Offline)"
-st.html(f"""
-<div class="top-nav-bar">
-    <div class="logo-area">
-        <span class="logo-icon">🍷</span>
-        <span class="logo-text">GastroSense AI</span>
+connection_text = "Live Database" if is_live else "Demo Mode"
+
+col_logo, col_badge, col_crm, col_reset, col_profile = st.columns([2.5, 1.8, 1.2, 1.5, 0.4], vertical_alignment="center")
+
+with col_logo:
+    st.html("""
+    <div class="logo-area" style="padding: 6px 0;">
+        <span class="logo-text" style="font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px;">GastroSense AI</span>
     </div>
-    <div class="header-right">
+    """)
+
+with col_badge:
+    st.html(f"""
+    <div style="display: flex; align-items: center; height: 100%;">
         <div class="connection-badge {connection_class}">{connection_text}</div>
+    </div>
+    """)
+
+with col_crm:
+    with st.popover("Импорт CRM", use_container_width=True):
+        uploaded_file = st.file_uploader(
+            "Загрузите выгрузку чеков (CSV/XLSX)",
+            type=["csv", "xlsx"],
+            key="crm_file_uploader_popover"
+        )
+        if uploaded_file is not None:
+            try:
+                if uploaded_file.name.endswith(".csv"):
+                    df_preview = pd.read_csv(uploaded_file, nrows=1)
+                else:
+                    df_preview = pd.read_excel(uploaded_file, nrows=1)
+                
+                if st.button("Импортировать", type="primary", use_container_width=True, key="import_btn_light"):
+                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+                    with st.spinner("Загрузка..."):
+                        res = post_data("/upload/checks", files=files)
+                        if res.get("success"):
+                            st.success("Импортировано!")
+                            st.rerun()
+                        else:
+                            st.error("Ошибка импорта.")
+            except Exception as e:
+                st.error("Ошибка парсинга.")
+
+with col_reset:
+    if not is_live:
+        if st.button("Демо-данные", type="primary", use_container_width=True, key="seed_btn_light"):
+            with st.spinner("Наполнение БД..."):
+                res = post_data("/upload/seed-demo")
+                if res.get("success"):
+                    st.success("БД наполнена!")
+                    st.rerun()
+                else:
+                    st.error("БД недоступна.")
+    else:
+        if st.button("Сбросить БД", type="secondary", use_container_width=True, key="reset_btn_light"):
+            with st.spinner("Сброс БД..."):
+                res = post_data("/upload/seed-demo")
+                if res.get("success"):
+                    st.success("Сброшено!")
+                    st.rerun()
+
+with col_profile:
+    st.html("""
+    <div style="display: flex; justify-content: flex-end; align-items: center; height: 100%;">
         <div class="profile-pic">GS</div>
     </div>
-</div>
-""")
+    """)
+
+st.html('<hr style="margin-top: 12px; margin-bottom: 24px; border: 0; border-top: 1px solid #e5e7eb;">')
 
 # ----------------- DATA PREPARATION -----------------
 if not is_live:
@@ -528,10 +630,9 @@ def make_metric_card_content(label, value, subtext, delta=None, is_positive=True
     return html
 
 # Helper to make beautiful section header
-def make_section_header(icon, title):
+def make_section_header(title):
     st.html(f"""
     <div class="section-header">
-        <span class="section-icon">{icon}</span>
         <span class="section-title">{title}</span>
     </div>
     """)
@@ -542,54 +643,7 @@ def make_section_header(icon, title):
 # ==========================================
 # 📥 ВЕРХНЯЯ ПАНЕЛЬ: ИМПОРТ И УПРАВЛЕНИЕ БД (sleek header style)
 # ==========================================
-col_title, col_btns = st.columns([1.5, 1])
-with col_title:
-    st.html('<h1 style="font-size: 26px; font-weight: 800; color: #111827; margin: 0; padding-top: 4px;">Интеллектуальная панель аналитики</h1>')
-
-with col_btns:
-    btn_col1, btn_col2 = st.columns(2)
-    with btn_col1:
-        with st.popover("📥 Импорт CRM", use_container_width=True):
-            uploaded_file = st.file_uploader(
-                "Загрузите выгрузку чеков (CSV/XLSX)",
-                type=["csv", "xlsx"],
-                key="crm_file_uploader_popover"
-            )
-            if uploaded_file is not None:
-                try:
-                    if uploaded_file.name.endswith(".csv"):
-                        df_preview = pd.read_csv(uploaded_file, nrows=1)
-                    else:
-                        df_preview = pd.read_excel(uploaded_file, nrows=1)
-                    
-                    if st.button("📤 Импортировать", type="primary", use_container_width=True, key="import_btn_light"):
-                        files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
-                        with st.spinner("Загрузка..."):
-                            res = post_data("/upload/checks", files=files)
-                            if res.get("success"):
-                                st.success("Импортировано!")
-                                st.rerun()
-                            else:
-                                st.error("Ошибка импорта.")
-                except Exception as e:
-                    st.error("Ошибка парсинга.")
-    with btn_col2:
-        if not is_live:
-            if st.button("🚀 Демо-данные", type="primary", use_container_width=True, key="seed_btn_light"):
-                with st.spinner("Наполнение БД..."):
-                    res = post_data("/upload/seed-demo")
-                    if res.get("success"):
-                        st.success("БД наполнена!")
-                        st.rerun()
-                    else:
-                        st.error("БД недоступна.")
-        else:
-            if st.button("🗑️ Сбросить БД", type="secondary", use_container_width=True, key="reset_btn_light"):
-                with st.spinner("Сброс БД..."):
-                    res = post_data("/upload/seed-demo")
-                    if res.get("success"):
-                        st.success("Сброшено!")
-                        st.rerun()
+# Controls and headers are relocated to the top navigation bar header.
 
 st.write("") # Extra spacing under title bar
 
@@ -638,7 +692,7 @@ with c4:
 # ==========================================
 # 📈 SECTION 1: DEMAND FORECAST (Прогноз спроса)
 # ==========================================
-make_section_header("📈", "Прогноз спроса (LightGBM AI)")
+make_section_header("Прогноз спроса (LightGBM AI)")
 
 fore_col_left, fore_col_right = st.columns([1, 2.5])
 
@@ -755,7 +809,7 @@ with fore_col_right:
 # ==========================================
 # 🌟 SECTION 2: MENU ENGINEERING (Анализ меню)
 # ==========================================
-make_section_header("🌟", "Анализ меню (Smith-Shostack Matrix)")
+make_section_header("Анализ меню (Smith-Shostack Matrix)")
 
 menu_col_left, menu_col_right = st.columns([1.8, 1])
 
@@ -943,7 +997,7 @@ with st.container(border=True):
 # ==========================================
 # 🤝 SECTION 3: CROSS-SALES (Кросс-продажи)
 # ==========================================
-make_section_header("🤝", "Матрица зависимостей и Кросс-продажи")
+make_section_header("Матрица зависимостей и Кросс-продажи")
 
 cross_col_left, cross_col_right = st.columns([1.5, 1])
 
