@@ -20,8 +20,8 @@ st.html("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
-    /* Global Styles */
-    .stApp {
+    /* Global Styles - Force light background on all wrappers */
+    .stApp, div[data-testid="stAppViewContainer"], section.main, [data-testid="stHeader"] {
         background-color: #f3f4f6 !important;
         color: #1f2937 !important;
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
@@ -42,17 +42,15 @@ st.html("""
         margin: 0 auto !important;
     }
     
-    /* Custom Header Navigation Bar */
+    /* Custom Header Navigation Bar - Premium Borderless Design */
     .top-nav-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 16px;
-        padding: 16px 28px;
-        margin-bottom: 28px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        background-color: transparent;
+        padding: 12px 0 24px 0;
+        margin-bottom: 24px;
+        border-bottom: 1px solid #e5e7eb;
     }
     .logo-area {
         display: flex;
@@ -60,7 +58,13 @@ st.html("""
         gap: 12px;
     }
     .logo-icon {
-        font-size: 24px;
+        font-size: 26px;
+    }
+    .logo-text {
+        font-size: 20px;
+        font-weight: 800;
+        color: #111827;
+        letter-spacing: -0.5px;
     }
     .header-right {
         display: flex;
@@ -73,17 +77,16 @@ st.html("""
         padding: 6px 14px;
         border-radius: 20px;
         letter-spacing: 0.5px;
-        text-transform: uppercase;
     }
     .badge-live {
-        background-color: #ecfdf5;
-        color: #047857;
-        border: 1px solid #d1fae5;
+        background-color: #d1fae5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
     }
     .badge-demo {
-        background-color: #fffbeb;
-        color: #b45309;
-        border: 1px solid #fef3c7;
+        background-color: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
     }
     .profile-pic {
         background-color: #1f2937;
@@ -102,21 +105,20 @@ st.html("""
     .section-header {
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin-top: 36px;
-        margin-bottom: 20px;
-        border-bottom: 1px solid #e5e7eb;
-        padding-bottom: 8px;
+        gap: 12px;
+        margin-top: 44px;
+        margin-bottom: 24px;
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 10px;
     }
     .section-icon {
-        font-size: 20px;
+        font-size: 24px;
     }
     .section-title {
-        font-size: 15px;
-        font-weight: 750;
+        font-size: 22px;
+        font-weight: 800;
         color: #111827;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
+        letter-spacing: -0.3px;
     }
 
     /* Target all st.container(border=True) to style them as sleek cards */
@@ -538,53 +540,58 @@ def make_section_header(icon, title):
 # 📊 ROW 1: CONTROLS & KEY METRICS (KPIs)
 # ==========================================
 # ==========================================
-# 📥 ВЕРХНЯЯ ПАНЕЛЬ: ИМПОРТ И УПРАВЛЕНИЕ БД
+# 📥 ВЕРХНЯЯ ПАНЕЛЬ: ИМПОРТ И УПРАВЛЕНИЕ БД (sleek header style)
 # ==========================================
-with st.container(border=True):
-    col_upload, col_action = st.columns([3, 1])
-    with col_upload:
-        uploaded_file = st.file_uploader(
-            "Импорт чеков CRM (CSV/XLSX)", 
-            type=["csv", "xlsx"], 
-            label_visibility="collapsed",
-            key="crm_file_uploader_light_v4"
-        )
-    with col_action:
-        if uploaded_file is not None:
-            try:
-                if uploaded_file.name.endswith(".csv"):
-                    df_preview = pd.read_csv(uploaded_file, nrows=1)
-                else:
-                    df_preview = pd.read_excel(uploaded_file, nrows=1)
-                
-                if st.button("📤 Импортировать файл", type="primary", use_container_width=True, key="import_btn_light"):
-                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
-                    with st.spinner("Загрузка..."):
-                        res = post_data("/upload/checks", files=files)
-                        if res.get("success"):
-                            st.success("Импортировано!")
-                            st.rerun()
-                        else:
-                            st.error("Ошибка импорта.")
-            except Exception as e:
-                st.error("Ошибка парсинга.")
+col_title, col_btns = st.columns([1.5, 1])
+with col_title:
+    st.html('<h1 style="font-size: 26px; font-weight: 800; color: #111827; margin: 0; padding-top: 4px;">Интеллектуальная панель аналитики</h1>')
+
+with col_btns:
+    btn_col1, btn_col2 = st.columns(2)
+    with btn_col1:
+        with st.popover("📥 Импорт CRM", use_container_width=True):
+            uploaded_file = st.file_uploader(
+                "Загрузите выгрузку чеков (CSV/XLSX)",
+                type=["csv", "xlsx"],
+                key="crm_file_uploader_popover"
+            )
+            if uploaded_file is not None:
+                try:
+                    if uploaded_file.name.endswith(".csv"):
+                        df_preview = pd.read_csv(uploaded_file, nrows=1)
+                    else:
+                        df_preview = pd.read_excel(uploaded_file, nrows=1)
+                    
+                    if st.button("📤 Импортировать", type="primary", use_container_width=True, key="import_btn_light"):
+                        files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+                        with st.spinner("Загрузка..."):
+                            res = post_data("/upload/checks", files=files)
+                            if res.get("success"):
+                                st.success("Импортировано!")
+                                st.rerun()
+                            else:
+                                st.error("Ошибка импорта.")
+                except Exception as e:
+                    st.error("Ошибка парсинга.")
+    with btn_col2:
+        if not is_live:
+            if st.button("🚀 Демо-данные", type="primary", use_container_width=True, key="seed_btn_light"):
+                with st.spinner("Наполнение БД..."):
+                    res = post_data("/upload/seed-demo")
+                    if res.get("success"):
+                        st.success("БД наполнена!")
+                        st.rerun()
+                    else:
+                        st.error("БД недоступна.")
         else:
-            if not is_live:
-                if st.button("🚀 Демо-данные в 1 клик", type="primary", use_container_width=True, key="seed_btn_light"):
-                    with st.spinner("Наполнение БД..."):
-                        res = post_data("/upload/seed-demo")
-                        if res.get("success"):
-                            st.success("БД наполнена!")
-                            st.rerun()
-                        else:
-                            st.error("БД недоступна.")
-            else:
-                if st.button("🗑️ Сбросить базу данных", type="secondary", use_container_width=True, key="reset_btn_light"):
-                    with st.spinner("Сброс БД..."):
-                        res = post_data("/upload/seed-demo")
-                        if res.get("success"):
-                            st.success("Сброшено!")
-                            st.rerun()
+            if st.button("🗑️ Сбросить БД", type="secondary", use_container_width=True, key="reset_btn_light"):
+                with st.spinner("Сброс БД..."):
+                    res = post_data("/upload/seed-demo")
+                    if res.get("success"):
+                        st.success("Сброшено!")
+                        st.rerun()
+
+st.write("") # Extra spacing under title bar
 
 # ==========================================
 # 📊 РЯД KPI: КЛЮЧЕВЫЕ МЕТРИКИ
@@ -859,6 +866,29 @@ with menu_col_right:
         </div>
         """)
 
+        # Add Menu Summary Metrics below to balance left-right height in Smith-Shostack layout
+        total_items = len(df_menu) if not df_menu.empty else 0
+        avg_menu_margin = df_menu["avg_margin"].mean() if not df_menu.empty else 0.0
+        best_seller = df_menu.loc[df_menu["popularity_sales"].idxmax()]["item_name"] if not df_menu.empty else "—"
+        
+        st.html(f"""
+        <div style="margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+            <p style="font-size:12px; font-weight:800; color:#111827; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">📊 Сводка по меню:</p>
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:#6b7280; margin-bottom:8px;">
+                <span>Всего позиций в меню</span>
+                <span style="font-weight:700; color:#111827;">{total_items} шт.</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:#6b7280; margin-bottom:8px;">
+                <span>Средняя маржинальность</span>
+                <span style="font-weight:700; color:#111827;">{avg_menu_margin:,.2f} ₽</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:#6b7280;">
+                <span>Лидер по продажам</span>
+                <span style="font-weight:700; color:#111827;">{best_seller}</span>
+            </div>
+        </div>
+        """)
+
 # Table directly under quadrants
 with st.container(border=True):
     st.html('<p style="font-size:12px; font-weight:800; color:#111827; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Подробный анализ эффективности блюд</p>')
@@ -874,7 +904,7 @@ with st.container(border=True):
                         <th>Продажи (ед.)</th>
                         <th>Маржа (ед.)</th>
                         <th>Выручка (всего)</th>
-                        <th>Кластер (K-Means)</th>
+                        <th style="text-align: center;">Кластер (K-Means)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -898,7 +928,7 @@ with st.container(border=True):
                         <td>{f"{row['popularity_sales']:,}".replace(",", " ")} шт.</td>
                         <td>{f"{row['avg_margin']:,.2f}".replace(",", " ")} ₽</td>
                         <td style="color:#111827; font-weight:700;">{f"{row['total_revenue']:,.0f}".replace(",", " ")} ₽</td>
-                        <td><span class="badge {badge_class}">{cluster}</span></td>
+                        <td style="text-align: center;"><span class="badge {badge_class}">{cluster}</span></td>
                     </tr>
             """
         table_html += """
@@ -936,8 +966,8 @@ with cross_col_left:
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
                 font=dict(family="Plus Jakarta Sans, sans-serif", color="#1f2937"),
-                margin=dict(l=0, r=0, t=10, b=0),
-                height=420,
+                margin=dict(l=0, r=0, t=10, b=40), # Added bottom margin for labels
+                height=480, # Increased height to prevent vertical squash & align with combo card
                 xaxis=dict(showgrid=False, tickfont=dict(color="#6b7280", size=9), linecolor="#e5e7eb", tickangle=-45),
                 yaxis=dict(showgrid=False, tickfont=dict(color="#6b7280", size=9), linecolor="#e5e7eb")
             )
