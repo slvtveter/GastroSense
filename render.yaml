@@ -1,0 +1,21 @@
+# Деплой только дашборда-портфолио (демо-данные, без MySQL).
+# В Render: New → Blueprint → подключить репозиторий.
+services:
+  - type: web
+    name: gastrosense-portfolio
+    runtime: python
+    rootDir: dashboard
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --browser.gatherUsageStats=false
+    plan: free
+    envVars:
+      - key: CONTACT_NAME
+        sync: false
+      - key: CONTACT_TELEGRAM
+        sync: false
+      - key: CONTACT_EMAIL
+        sync: false
+      - key: CONTACT_PHONE
+        sync: false
+      - key: DEMO_URL
+        sync: false
