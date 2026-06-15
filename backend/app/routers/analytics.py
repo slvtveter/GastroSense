@@ -105,7 +105,7 @@ def get_item_associations(db: Session = Depends(get_db)):
     crosstab = pd.crosstab(merged["item_name_x"], merged["item_name_y"])
     
     # Ensure square matrix in the correct order
-    crosstab = crosstab.reindex(index=top_items, columns=top_items, fill_value=0)
+    crosstab = crosstab.reindex(index=top_items, columns=top_items, fill_value=0).astype(float)
     
     # 3. Calculate conditional probabilities: P(J | I) = count(I and J) / count(I)
     counts = df_top["item_name"].value_counts()

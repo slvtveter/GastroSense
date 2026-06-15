@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # Custom premium dark theme styling (Finpath & Donezo dark aesthetics)
-st.markdown("""
+st.html("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
@@ -130,63 +130,28 @@ st.markdown("""
         text-transform: uppercase;
     }
 
-    /* Sleek Custom Cards */
-    .custom-card {
-        background-color: #0f131a;
-        border: 1px solid #1a222f;
-        border-radius: 20px;
-        padding: 24px;
-        margin-bottom: 16px;
-        box-shadow: 0 4px 25px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Target all st.container(border=True) to style them as sleek cards */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #0f131a !important;
+        border: 1px solid #1a222f !important;
+        border-radius: 20px !important;
+        padding: 24px !important;
+        box-shadow: 0 4px 25px rgba(0, 0, 0, 0.1) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
-    .custom-card:hover {
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+        border-color: #2e3b4e !important;
         transform: translateY(-2px);
-        border-color: #2e3b4e;
-        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.3) !important;
     }
     
-    /* Metric Cards specific styles */
-    .metric-card {
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        min-height: 110px;
+    /* Support for highlighted container via :has() */
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.highlight-marker) {
+        background: linear-gradient(135deg, #ccff00 0%, #a3cc00 100%) !important;
+        border: none !important;
     }
-    .metric-label {
-        font-size: 11px;
-        color: #8b99ad;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-    }
-    .metric-value {
-        font-size: 28px;
-        font-weight: 800;
-        color: #ffffff;
-        margin-top: 6px;
-        letter-spacing: -0.5px;
-    }
-    .metric-subtext {
-        font-size: 11px;
-        color: #64748b;
-        margin-top: 4px;
-    }
-    
-    /* Lime green highlight card */
-    .highlight-card {
-        background: linear-gradient(135deg, #ccff00 0%, #a3cc00 100%);
-        color: #07090e;
-        border: none;
-    }
-    .highlight-card .metric-label {
-        color: rgba(7, 9, 14, 0.6);
-    }
-    .highlight-card .metric-value {
-        color: #07090e;
-    }
-    .highlight-card .metric-subtext {
-        color: rgba(7, 9, 14, 0.5);
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.highlight-marker):hover {
+        box-shadow: 0 16px 30px rgba(204, 255, 0, 0.2) !important;
     }
     
     /* Interactive combo recommendation card */
@@ -344,8 +309,16 @@ st.markdown("""
         box-shadow: 0 6px 20px rgba(204, 255, 0, 0.35);
         transform: translateY(-1px);
     }
+    
+    /* Streamlit Alert message boxes */
+    div[data-testid="stNotification"] {
+        background-color: #0f131a !important;
+        border: 1px solid #1a222f !important;
+        border-radius: 12px !important;
+        color: #f1f5f9 !important;
+    }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 # Connection Settings
 BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000/api/v1")
@@ -374,7 +347,7 @@ is_live = stats_data is not None and stats_data.get("total_orders", 0) > 0
 # Render Top Navigation Bar
 connection_class = "badge-live" if is_live else "badge-demo"
 connection_text = "🟢 Live Database (MySQL)" if is_live else "🟡 Demo Mode (Offline)"
-st.markdown(f"""
+st.html(f"""
 <div class="top-nav-bar">
     <div class="logo-area">
         <span class="logo-icon">🍷</span>
@@ -385,7 +358,7 @@ st.markdown(f"""
         <div class="profile-pic">GS</div>
     </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 # ----------------- DATA PREPARATION -----------------
 if not is_live:
@@ -495,20 +468,25 @@ offline_assoc_lookup = {
     "Пиво крафтовое": [("Бургер Шеф-Краб", 0.64, 2.0), ("Сырные палочки", 0.45, 1.4), ("Кольца луковые", 0.30, 0.9)]
 }
 
-# Helper to generate custom metric card HTML
-def make_metric_card(label, value, subtext, delta=None, is_positive=True, is_highlighted=False):
-    highlight_class = "highlight-card" if is_highlighted else ""
+# Helper to generate custom metric card content HTML inside native container
+def make_metric_card_content(label, value, subtext, delta=None, is_positive=True, is_highlighted=False):
+    highlight_marker = '<div class="highlight-marker"></div>' if is_highlighted else ''
     delta_html = ""
     if delta:
-        color = "#ccff00" if is_highlighted else ("#ccff00" if is_positive else "#ff3353")
+        color = "#07090e" if is_highlighted else ("#ccff00" if is_positive else "#ff3353")
         arrow = "↑" if is_positive else "↓"
         delta_html = f'<div style="color: {color}; font-size: 11px; font-weight: 700; margin-top: 4px;">{arrow} {delta}</div>'
     
+    label_color = "rgba(7, 9, 14, 0.6)" if is_highlighted else "#8b99ad"
+    value_color = "#07090e" if is_highlighted else "#ffffff"
+    subtext_color = "rgba(7, 9, 14, 0.5)" if is_highlighted else "#64748b"
+    
     html = f"""
-    <div class="custom-card metric-card {highlight_class}">
-        <div class="metric-label">{label}</div>
-        <div class="metric-value">{value}</div>
-        <div class="metric-subtext">
+    {highlight_marker}
+    <div style="display: flex; flex-direction: column; justify-content: space-between; min-height: 100px;">
+        <div style="font-size: 11px; color: {label_color}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">{label}</div>
+        <div style="font-size: 28px; font-weight: 800; color: {value_color}; margin-top: 6px; letter-spacing: -0.5px;">{value}</div>
+        <div style="font-size: 11px; color: {subtext_color}; margin-top: 4px;">
             <span>{subtext}</span>
         </div>
         {delta_html}
@@ -518,12 +496,12 @@ def make_metric_card(label, value, subtext, delta=None, is_positive=True, is_hig
 
 # Helper to make beautiful section header
 def make_section_header(icon, title):
-    st.markdown(f"""
+    st.html(f"""
     <div class="section-header">
         <span class="section-icon">{icon}</span>
         <span class="section-title">{title}</span>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 # ==========================================
 # 📊 ROW 1: CONTROLS & KEY METRICS (KPIs)
@@ -531,85 +509,88 @@ def make_section_header(icon, title):
 row1_col_control, row1_col_metrics = st.columns([1.2, 2.8])
 
 with row1_col_control:
-    st.markdown('<div class="custom-card" style="min-height: 250px; padding: 20px;">', unsafe_allow_html=True)
-    st.markdown('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">📥 Импорт и База Данных</p>', unsafe_allow_html=True)
-    
-    # Tiny upload section
-    uploaded_file = st.file_uploader("Импорт чеков CRM (CSV/XLSX)", type=["csv", "xlsx"], label_visibility="collapsed")
-    
-    if uploaded_file is not None:
-        try:
-            if uploaded_file.name.endswith(".csv"):
-                df_preview = pd.read_csv(uploaded_file, nrows=1)
-            else:
-                df_preview = pd.read_excel(uploaded_file, nrows=1)
-            
-            if st.button("📤 Импортировать файл", type="primary", use_container_width=True):
-                files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
-                with st.spinner("Загрузка и переобучение ML моделей..."):
-                    res = post_data("/upload/checks", files=files)
-                    if res.get("success"):
-                        st.success("Импортировано!")
-                        st.rerun()
-                    else:
-                        st.error("Ошибка импорта.")
-        except Exception as e:
-            st.error("Ошибка парсинга.")
-    else:
-        # Seeding database
-        if not is_live:
-            if st.button("🚀 Демо-данные в 1 клик", type="primary", use_container_width=True):
-                with st.spinner("Наполнение MySQL..."):
-                    res = post_data("/upload/seed-demo")
-                    if res.get("success"):
-                        st.success("БД наполнена!")
-                        st.rerun()
-                    else:
-                        st.error("БД недоступна.")
+    with st.container(border=True):
+        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">📥 Импорт и База Данных</p>')
+        
+        # Compact uploader
+        uploaded_file = st.file_uploader("Импорт чеков CRM (CSV/XLSX)", type=["csv", "xlsx"], label_visibility="collapsed")
+        
+        if uploaded_file is not None:
+            try:
+                if uploaded_file.name.endswith(".csv"):
+                    df_preview = pd.read_csv(uploaded_file, nrows=1)
+                else:
+                    df_preview = pd.read_excel(uploaded_file, nrows=1)
+                
+                if st.button("📤 Импортировать файл", type="primary", use_container_width=True):
+                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+                    with st.spinner("Загрузка и переобучение ML моделей..."):
+                        res = post_data("/upload/checks", files=files)
+                        if res.get("success"):
+                            st.success("Импортировано!")
+                            st.rerun()
+                        else:
+                            st.error("Ошибка импорта.")
+            except Exception as e:
+                st.error("Ошибка парсинга.")
         else:
-            if st.button("🗑️ Сбросить базу данных", type="secondary", use_container_width=True):
-                with st.spinner("Сброс MySQL..."):
-                    res = post_data("/upload/seed-demo")
-                    if res.get("success"):
-                        st.success("Сброшено!")
-                        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+            # Seeding database
+            if not is_live:
+                if st.button("🚀 Демо-данные в 1 клик", type="primary", use_container_width=True):
+                    with st.spinner("Наполнение MySQL..."):
+                        res = post_data("/upload/seed-demo")
+                        if res.get("success"):
+                            st.success("БД наполнена!")
+                            st.rerun()
+                        else:
+                            st.error("БД недоступна.")
+            else:
+                if st.button("🗑️ Сбросить базу данных", type="secondary", use_container_width=True):
+                    with st.spinner("Сброс MySQL..."):
+                        res = post_data("/upload/seed-demo")
+                        if res.get("success"):
+                            st.success("Сброшено!")
+                            st.rerun()
 
 with row1_col_metrics:
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown(make_metric_card(
-            "Выручка ресторана", 
-            f"{total_revenue:,.0f} ₽".replace(",", " "), 
-            "За последние 180 дней", 
-            delta="12.4% vs прошлый месяц", 
-            is_positive=True,
-            is_highlighted=True
-        ), unsafe_allow_html=True)
+        with st.container(border=True):
+            st.html(make_metric_card_content(
+                "Выручка ресторана", 
+                f"{total_revenue:,.0f} ₽".replace(",", " "), 
+                "За последние 180 дней", 
+                delta="12.4% vs прошлый месяц", 
+                is_positive=True,
+                is_highlighted=True
+            ))
     with c2:
-        st.markdown(make_metric_card(
-            "Количество заказов", 
-            f"{total_orders:,.0f}".replace(",", " "), 
-            "Всего чеков закрыто", 
-            delta="8.2% к прошлому периоду", 
-            is_positive=True
-        ), unsafe_allow_html=True)
+        with st.container(border=True):
+            st.html(make_metric_card_content(
+                "Количество заказов", 
+                f"{total_orders:,.0f}".replace(",", " "), 
+                "Всего чеков закрыто", 
+                delta="8.2% к прошлому периоду", 
+                is_positive=True
+            ))
     with c3:
-        st.markdown(make_metric_card(
-            "Средний чек", 
-            f"{avg_check:,.2f} ₽".replace(",", " "), 
-            "На одного посетителя", 
-            delta="5.1% рост чека", 
-            is_positive=True
-        ), unsafe_allow_html=True)
+        with st.container(border=True):
+            st.html(make_metric_card_content(
+                "Средний чек", 
+                f"{avg_check:,.2f} ₽".replace(",", " "), 
+                "На одного посетителя", 
+                delta="5.1% рост чека", 
+                is_positive=True
+            ))
     with c4:
-        st.markdown(make_metric_card(
-            "Продано позиций", 
-            f"{total_items_sold:,.0f}".replace(",", " "), 
-            f"Среднее в чеке: {avg_items_per_check:.1f} ед.", 
-            delta="3.9% рост глубины", 
-            is_positive=True
-        ), unsafe_allow_html=True)
+        with st.container(border=True):
+            st.html(make_metric_card_content(
+                "Продано позиций", 
+                f"{total_items_sold:,.0f}".replace(",", " "), 
+                f"Среднее в чеке: {avg_items_per_check:.1f} ед.", 
+                delta="3.9% рост глубины", 
+                is_positive=True
+            ))
 
 # ==========================================
 # 📈 SECTION 1: DEMAND FORECAST (Прогноз спроса)
@@ -619,115 +600,114 @@ make_section_header("📈", "Прогноз спроса (LightGBM AI)")
 fore_col_left, fore_col_right = st.columns([1, 2.5])
 
 with fore_col_left:
-    st.markdown('<div class="custom-card" style="min-height: 460px;">', unsafe_allow_html=True)
-    st.markdown('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Симулятор спроса</p>', unsafe_allow_html=True)
-    st.markdown('<p style="font-size:11px; color:#8b99ad; line-height:1.4; margin-bottom:20px;">Настройте уровень трафика гостей для оценки корректировок объемов поставок сырья.</p>', unsafe_allow_html=True)
-    
-    demand_shift = st.slider(
-        "Симулятор трафика (%)", 
-        min_value=-30, 
-        max_value=50, 
-        value=0, 
-        step=5,
-        key="demand_shift_slider_single"
-    )
-    
-    factor = 1 + (demand_shift / 100.0)
-    adjusted_predicted_rev = df_fore["predicted_revenue"] * factor
-    adjusted_lower_bound = df_fore["lower_bound_revenue"] * factor
-    adjusted_upper_bound = df_fore["upper_bound_revenue"] * factor
-    adjusted_predicted_orders = df_fore["predicted_orders"] * factor
-    
-    base_patties = int(adjusted_predicted_orders.sum() * 1.5)
-    base_fries_kg = int(adjusted_predicted_orders.sum() * 0.35)
-    base_beverages = int(adjusted_predicted_orders.sum() * 0.9)
-    
-    st.markdown(f"""
-    <div style="margin-top:24px; border-top: 1px solid #1a222f; padding-top:20px;">
-        <p style="font-size:12px; font-weight:700; color:#ccff00; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">📊 Заказ сырья (Прогноз):</p>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:#8b99ad; margin-bottom:8px;">
-            <span>🥩 Булочки и Котлеты</span>
-            <span style="font-weight:700; color:#fff;">{base_patties} шт.</span>
+    with st.container(border=True):
+        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Симулятор спроса</p>')
+        st.html('<p style="font-size:11px; color:#8b99ad; line-height:1.4; margin-bottom:20px;">Настройте уровень трафика гостей для оценки корректировок объемов поставок сырья.</p>')
+        
+        demand_shift = st.slider(
+            "Симулятор трафика (%)", 
+            min_value=-30, 
+            max_value=50, 
+            value=0, 
+            step=5,
+            key="demand_shift_slider_single_v3"
+        )
+        
+        factor = 1 + (demand_shift / 100.0)
+        adjusted_predicted_rev = df_fore["predicted_revenue"] * factor
+        adjusted_lower_bound = df_fore["lower_bound_revenue"] * factor
+        adjusted_upper_bound = df_fore["upper_bound_revenue"] * factor
+        adjusted_predicted_orders = df_fore["predicted_orders"] * factor
+        
+        base_patties = int(adjusted_predicted_orders.sum() * 1.5)
+        base_fries_kg = int(adjusted_predicted_orders.sum() * 0.35)
+        base_beverages = int(adjusted_predicted_orders.sum() * 0.9)
+        
+        st.html(f"""
+        <div style="margin-top:24px; border-top: 1px solid #1a222f; padding-top:20px;">
+            <p style="font-size:12px; font-weight:700; color:#ccff00; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">📊 Заказ сырья (Прогноз):</p>
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:#8b99ad; margin-bottom:8px;">
+                <span>🥩 Булочки и Котлеты</span>
+                <span style="font-weight:700; color:#fff;">{base_patties} шт.</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:#8b99ad; margin-bottom:8px;">
+                <span>🍟 Картофель фри (заморозка)</span>
+                <span style="font-weight:700; color:#fff;">{base_fries_kg} кг</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:#8b99ad;">
+                <span>🥤 Напитки и пиво</span>
+                <span style="font-weight:700; color:#fff;">{base_beverages} шт.</span>
+            </div>
         </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:#8b99ad; margin-bottom:8px;">
-            <span>🍟 Картофель фри (заморозка)</span>
-            <span style="font-weight:700; color:#fff;">{base_fries_kg} кг</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:#8b99ad;">
-            <span>🥤 Напитки и пиво</span>
-            <span style="font-weight:700; color:#fff;">{base_beverages} шт.</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+        """)
     
 with fore_col_right:
-    st.markdown('<div class="custom-card" style="min-height: 460px;">', unsafe_allow_html=True)
-    st.markdown('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">7-дневный прогноз продаж ИИ с доверительным интервалом</p>', unsafe_allow_html=True)
-    
-    if not df_fore.empty and not df_hist.empty:
-        fig_fore = go.Figure()
+    with st.container(border=True):
+        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">7-дневный прогноз продаж ИИ с доверительным интервалом</p>')
         
-        # History
-        fig_fore.add_trace(go.Scatter(
-            x=df_hist["date"],
-            y=df_hist["revenue"],
-            name="История (Факт)",
-            line=dict(color="#64748b", width=2.5),
-            mode="lines"
-        ))
-        
-        # Connect
-        conn_df = pd.concat([df_hist.tail(1), df_fore.head(1)])
-        fig_fore.add_trace(go.Scatter(
-            x=conn_df["date"],
-            y=[df_hist.tail(1)["revenue"].values[0], adjusted_predicted_rev.values[0]],
-            showlegend=False,
-            line=dict(color="#ccff00", width=2.5, dash="dot")
-        ))
-        
-        # Forecast
-        fig_fore.add_trace(go.Scatter(
-            x=df_fore["date"],
-            y=adjusted_predicted_rev,
-            name="Прогноз ИИ",
-            line=dict(color="#ccff00", width=3.5),
-            mode="lines+markers"
-        ))
-        
-        # CI Band
-        fig_fore.add_trace(go.Scatter(
-            x=df_fore["date"].tolist() + df_fore["date"].tolist()[::-1],
-            y=adjusted_upper_bound.tolist() + adjusted_lower_bound.tolist()[::-1],
-            fill="toself",
-            fillcolor="rgba(204, 255, 0, 0.05)",
-            line=dict(color="rgba(255,255,255,0)"),
-            hoverinfo="skip",
-            name="Доверительный интервал (95%)"
-        ))
-        
-        fig_fore.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=0, r=0, t=10, b=0),
-            height=320,
-            xaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=10), linecolor="#1a222f"),
-            yaxis=dict(gridcolor="#1a222f", tickfont=dict(color="#64748b", size=10), zeroline=False),
-            hovermode="x unified",
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                font=dict(size=10, color="#8b99ad")
+        if not df_fore.empty and not df_hist.empty:
+            fig_fore = go.Figure()
+            
+            # History
+            fig_fore.add_trace(go.Scatter(
+                x=df_hist["date"],
+                y=df_hist["revenue"],
+                name="История (Факт)",
+                line=dict(color="#64748b", width=2.5),
+                mode="lines"
+            ))
+            
+            # Connect
+            conn_df = pd.concat([df_hist.tail(1), df_fore.head(1)])
+            fig_fore.add_trace(go.Scatter(
+                x=conn_df["date"],
+                y=[df_hist.tail(1)["revenue"].values[0], adjusted_predicted_rev.values[0]],
+                showlegend=False,
+                line=dict(color="#ccff00", width=2.5, dash="dot")
+            ))
+            
+            # Forecast
+            fig_fore.add_trace(go.Scatter(
+                x=df_fore["date"],
+                y=adjusted_predicted_rev,
+                name="Прогноз ИИ",
+                line=dict(color="#ccff00", width=3.5),
+                mode="lines+markers"
+            ))
+            
+            # CI Band
+            fig_fore.add_trace(go.Scatter(
+                x=df_fore["date"].tolist() + df_fore["date"].tolist()[::-1],
+                y=adjusted_upper_bound.tolist() + adjusted_lower_bound.tolist()[::-1],
+                fill="toself",
+                fillcolor="rgba(204, 255, 0, 0.05)",
+                line=dict(color="rgba(255,255,255,0)"),
+                hoverinfo="skip",
+                name="Доверительный интервал (95%)"
+            ))
+            
+            fig_fore.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(family="Plus Jakarta Sans, sans-serif"),
+                margin=dict(l=0, r=0, t=10, b=0),
+                height=320,
+                xaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=10), linecolor="#1a222f"),
+                yaxis=dict(gridcolor="#1a222f", tickfont=dict(color="#64748b", size=10), zeroline=False),
+                hovermode="x unified",
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1,
+                    font=dict(size=10, color="#8b99ad")
+                )
             )
-        )
-        st.plotly_chart(fig_fore, use_container_width=True, config={"displayModeBar": False})
-    else:
-        st.info("Нет данных прогнозирования.")
-    st.markdown('</div>', unsafe_allow_html=True)
+            st.plotly_chart(fig_fore, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info("Нет данных прогнозирования.")
 
 # ==========================================
 # 🌟 SECTION 2: MENU ENGINEERING (Анализ меню)
@@ -737,144 +717,162 @@ make_section_header("🌟", "Анализ меню (Smith-Shostack Matrix)")
 menu_col_left, menu_col_right = st.columns([1.8, 1])
 
 with menu_col_left:
-    st.markdown('<div class="custom-card" style="min-height: 480px;">', unsafe_allow_html=True)
-    
-    if not df_menu.empty:
-        median_pop = df_menu["popularity_sales"].median()
-        median_margin = df_menu["avg_margin"].median()
+    with st.container(border=True):
+        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Матрица Smith-Shostack</p>')
         
-        colors_map = {
-            "Stars": "#ccff00",
-            "Workhorses": "#00d2ff",
-            "Puzzles": "#ffa500",
-            "Dogs": "#ff3353"
-        }
-        
-        fig_scatter = px.scatter(
-            df_menu,
-            x="popularity_sales",
-            y="avg_margin",
-            color="cluster_label",
-            text="item_name",
-            color_discrete_map=colors_map,
-            labels={
-                "popularity_sales": "Количество продаж (шт.)",
-                "avg_margin": "Маржа на единицу (₽)",
-                "cluster_label": "Класс блюда"
+        if not df_menu.empty:
+            median_pop = df_menu["popularity_sales"].median()
+            median_margin = df_menu["avg_margin"].median()
+            
+            colors_map = {
+                "Stars": "#ccff00",
+                "Workhorses": "#00d2ff",
+                "Puzzles": "#ffa500",
+                "Dogs": "#ff3353"
             }
-        )
-        
-        fig_scatter.add_vline(x=median_pop, line_dash="dash", line_color="#1a222f", line_width=1.5)
-        fig_scatter.add_hline(y=median_margin, line_dash="dash", line_color="#1a222f", line_width=1.5)
-        
-        fig_scatter.add_annotation(x=median_pop * 1.5, y=median_margin * 1.5, text="🌟 STARS", showarrow=False, font=dict(color="rgba(204, 255, 0, 0.15)", size=14, weight="bold"))
-        fig_scatter.add_annotation(x=median_pop * 1.5, y=median_margin * 0.5, text="🐎 WORKHORSES", showarrow=False, font=dict(color="rgba(0, 210, 255, 0.15)", size=14, weight="bold"))
-        fig_scatter.add_annotation(x=median_pop * 0.5, y=median_margin * 1.5, text="❓ PUZZLES", showarrow=False, font=dict(color="rgba(255, 165, 0, 0.15)", size=14, weight="bold"))
-        fig_scatter.add_annotation(x=median_pop * 0.5, y=median_margin * 0.5, text="🐕 DOGS", showarrow=False, font=dict(color="rgba(255, 51, 83, 0.15)", size=14, weight="bold"))
-        
-        fig_scatter.update_traces(
-            marker=dict(size=12, line=dict(width=1, color="#07090e")),
-            textposition="top center",
-            textfont=dict(color="#f1f5f9", size=9)
-        )
-        
-        fig_scatter.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=0, r=0, t=10, b=0),
-            height=400,
-            xaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=10), linecolor="#1a222f"),
-            yaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=10), linecolor="#1a222f"),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                font=dict(size=9, color="#8b99ad")
+            
+            fig_scatter = px.scatter(
+                df_menu,
+                x="popularity_sales",
+                y="avg_margin",
+                color="cluster_label",
+                text="item_name",
+                color_discrete_map=colors_map,
+                labels={
+                    "popularity_sales": "Количество продаж (шт.)",
+                    "avg_margin": "Маржа на единицу (₽)",
+                    "cluster_label": "Класс блюда"
+                }
             )
-        )
-        st.plotly_chart(fig_scatter, use_container_width=True, config={"displayModeBar": False})
-    else:
-        st.info("Нет данных меню.")
-    st.markdown('</div>', unsafe_allow_html=True)
+            
+            fig_scatter.add_vline(x=median_pop, line_dash="dash", line_color="#1a222f", line_width=1.5)
+            fig_scatter.add_hline(y=median_margin, line_dash="dash", line_color="#1a222f", line_width=1.5)
+            
+            fig_scatter.add_annotation(x=median_pop * 1.5, y=median_margin * 1.5, text="🌟 STARS", showarrow=False, font=dict(color="rgba(204, 255, 0, 0.15)", size=14, weight="bold"))
+            fig_scatter.add_annotation(x=median_pop * 1.5, y=median_margin * 0.5, text="🐎 WORKHORSES", showarrow=False, font=dict(color="rgba(0, 210, 255, 0.15)", size=14, weight="bold"))
+            fig_scatter.add_annotation(x=median_pop * 0.5, y=median_margin * 1.5, text="❓ PUZZLES", showarrow=False, font=dict(color="rgba(255, 165, 0, 0.15)", size=14, weight="bold"))
+            fig_scatter.add_annotation(x=median_pop * 0.5, y=median_margin * 0.5, text="🐕 DOGS", showarrow=False, font=dict(color="rgba(255, 51, 83, 0.15)", size=14, weight="bold"))
+            
+            fig_scatter.update_traces(
+                marker=dict(size=12, line=dict(width=1, color="#07090e")),
+                textposition="top center",
+                textfont=dict(color="#f1f5f9", size=9)
+            )
+            
+            fig_scatter.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(family="Plus Jakarta Sans, sans-serif"),
+                margin=dict(l=0, r=0, t=10, b=0),
+                height=350,
+                xaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=10), linecolor="#1a222f"),
+                yaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=10), linecolor="#1a222f"),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1,
+                    font=dict(size=9, color="#8b99ad")
+                )
+            )
+            st.plotly_chart(fig_scatter, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info("Нет данных меню.")
     
 with menu_col_right:
-    st.markdown('<div class="custom-card" style="min-height: 480px;">', unsafe_allow_html=True)
-    st.markdown('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:16px; text-transform:uppercase; letter-spacing:0.5px;">Стратегия оптимизации меню</p>', unsafe_allow_html=True)
-    
-    st.markdown("""
-    <div style="margin-bottom: 12px; border-left: 3px solid #ccff00; padding-left: 10px;">
-        <strong style="color: #ccff00; font-size:12px;">🌟 STARS</strong>
-        <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Высокая маржа и спрос. Не менять рецептуру, продвигать в топе.</p>
-    </div>
-    <div style="margin-bottom: 12px; border-left: 3px solid #00d2ff; padding-left: 10px;">
-        <strong style="color: #00d2ff; font-size:12px;">🐎 WORKHORSES</strong>
-        <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Высокий спрос, низкая маржа. Сократить фудкост сырья.</p>
-    </div>
-    <div style="margin-bottom: 12px; border-left: 3px solid #ffa500; padding-left: 10px;">
-        <strong style="color: #ffa500; font-size:12px;">❓ PUZZLES</strong>
-        <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Низкий спрос, высокая маржа. Стимулировать акциями.</p>
-    </div>
-    <div style="margin-bottom: 0px; border-left: 3px solid #ff3353; padding-left: 10px;">
-        <strong style="color: #ff3353; font-size:12px;">🐕 DOGS</strong>
-        <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Низкий спрос и маржа. Исключить или радикально переработать.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:16px; text-transform:uppercase; letter-spacing:0.5px;">Стратегия оптимизации меню</p>')
+        
+        stars_count, workhorses_count, puzzles_count, dogs_count = 0, 0, 0, 0
+        if not df_menu.empty:
+            stars_count = int((df_menu["cluster_label"] == "Stars").sum())
+            workhorses_count = int((df_menu["cluster_label"] == "Workhorses").sum())
+            puzzles_count = int((df_menu["cluster_label"] == "Puzzles").sum())
+            dogs_count = int((df_menu["cluster_label"] == "Dogs").sum())
+            
+        st.html(f"""
+        <div style="margin-bottom: 12px; border-left: 3px solid #ccff00; padding-left: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong style="color: #ccff00; font-size:12px;">🌟 STARS</strong>
+                <span style="font-size: 10px; background-color: rgba(204, 255, 0, 0.1); color: #ccff00; padding: 2px 6px; border-radius: 8px; font-weight: 700;">{stars_count} поз.</span>
+            </div>
+            <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Высокая маржа и спрос. Не менять рецептуру, продвигать в топе.</p>
+        </div>
+        <div style="margin-bottom: 12px; border-left: 3px solid #00d2ff; padding-left: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong style="color: #00d2ff; font-size:12px;">🐎 WORKHORSES</strong>
+                <span style="font-size: 10px; background-color: rgba(0, 210, 255, 0.1); color: #00d2ff; padding: 2px 6px; border-radius: 8px; font-weight: 700;">{workhorses_count} поз.</span>
+            </div>
+            <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Высокий спрос, низкая маржа. Сократить фудкост сырья.</p>
+        </div>
+        <div style="margin-bottom: 12px; border-left: 3px solid #ffa500; padding-left: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong style="color: #ffa500; font-size:12px;">❓ PUZZLES</strong>
+                <span style="font-size: 10px; background-color: rgba(255, 165, 0, 0.1); color: #ffa500; padding: 2px 6px; border-radius: 8px; font-weight: 700;">{puzzles_count} поз.</span>
+            </div>
+            <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Низкий спрос, высокая маржа. Стимулировать акциями.</p>
+        </div>
+        <div style="margin-bottom: 0px; border-left: 3px solid #ff3353; padding-left: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong style="color: #ff3353; font-size:12px;">🐕 DOGS</strong>
+                <span style="font-size: 10px; background-color: rgba(255, 51, 83, 0.1); color: #ff3353; padding: 2px 6px; border-radius: 8px; font-weight: 700;">{dogs_count} поз.</span>
+            </div>
+            <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Низкий спрос и маржа. Исключить или радикально переработать.</p>
+        </div>
+        """)
 
 # Table directly under quadrants
-st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-st.markdown('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Подробный анализ эффективности блюд</p>', unsafe_allow_html=True)
-
-if not df_menu.empty:
-    table_html = """
-    <div class="table-container">
-        <table class="premium-table">
-            <thead>
-                <tr>
-                    <th>Название блюда</th>
-                    <th>Категория</th>
-                    <th>Продажи (ед.)</th>
-                    <th>Маржа (ед.)</th>
-                    <th>Выручка (всего)</th>
-                    <th>Кластер (K-Means)</th>
-                </tr>
-            </thead>
-            <tbody>
-    """
-    for _, row in df_menu.iterrows():
-        cluster = row["cluster_label"]
-        badge_class = ""
-        if cluster == "Stars":
-            badge_class = "badge-star"
-        elif cluster == "Workhorses":
-            badge_class = "badge-workhorse"
-        elif cluster == "Puzzles":
-            badge_class = "badge-puzzle"
-        else:
-            badge_class = "badge-dog"
-            
-        table_html += f"""
-                <tr>
-                    <td style="color:#ffffff; font-weight:700;">{row['item_name']}</td>
-                    <td style="color:#8b99ad;">{row['category']}</td>
-                    <td>{row['popularity_sales']:,} шт.</td>
-                    <td>{row['avg_margin']:,.2f} ₽</td>
-                    <td style="color:#ccff00;">{row['total_revenue']:,.0f} ₽</td>
-                    <td><span class="badge {badge_class}">{cluster}</span></td>
-                </tr>
+with st.container(border=True):
+    st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Подробный анализ эффективности блюд</p>')
+    
+    if not df_menu.empty:
+        table_html = """
+        <div class="table-container">
+            <table class="premium-table">
+                <thead>
+                    <tr>
+                        <th>Название блюда</th>
+                        <th>Категория</th>
+                        <th>Продажи (ед.)</th>
+                        <th>Маржа (ед.)</th>
+                        <th>Выручка (всего)</th>
+                        <th>Кластер (K-Means)</th>
+                    </tr>
+                </thead>
+                <tbody>
         """
-    table_html += """
-            </tbody>
-        </table>
-    </div>
-    """
-    st.markdown(table_html, unsafe_allow_html=True)
-else:
-    st.info("Нет данных о меню.")
-st.markdown('</div>', unsafe_allow_html=True)
+        for _, row in df_menu.iterrows():
+            cluster = row["cluster_label"]
+            badge_class = ""
+            if cluster == "Stars":
+                badge_class = "badge-star"
+            elif cluster == "Workhorses":
+                badge_class = "badge-workhorse"
+            elif cluster == "Puzzles":
+                badge_class = "badge-puzzle"
+            else:
+                badge_class = "badge-dog"
+                
+            table_html += f"""
+                    <tr>
+                        <td style="color:#ffffff; font-weight:700;">{row['item_name']}</td>
+                        <td style="color:#8b99ad;">{row['category']}</td>
+                        <td>{f"{row['popularity_sales']:,}".replace(",", " ")} шт.</td>
+                        <td>{f"{row['avg_margin']:,.2f}".replace(",", " ")} ₽</td>
+                        <td style="color:#ccff00;">{f"{row['total_revenue']:,.0f}".replace(",", " ")} ₽</td>
+                        <td><span class="badge {badge_class}">{cluster}</span></td>
+                    </tr>
+            """
+        table_html += """
+                </tbody>
+            </table>
+        </div>
+        """
+        st.html(table_html)
+    else:
+        st.info("Нет данных о меню.")
 
 # ==========================================
 # 🤝 SECTION 3: CROSS-SALES (Кросс-продажи)
@@ -884,93 +882,92 @@ make_section_header("🤝", "Матрица зависимостей и Крос
 cross_col_left, cross_col_right = st.columns([1.5, 1])
 
 with cross_col_left:
-    st.markdown('<div class="custom-card" style="min-height: 520px;">', unsafe_allow_html=True)
-    st.markdown('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Матрица связей совместных покупок P(B | A)</p>', unsafe_allow_html=True)
-    
-    if len(items_list) > 1 and len(assoc_matrix) > 0:
-        fig_heat = go.Figure(data=go.Heatmap(
-            z=assoc_matrix,
-            x=items_list,
-            y=items_list,
-            colorscale=[[0, "#0f131a"], [0.4, "#17283c"], [1, "#ccff00"]],
-            hoverongaps=False,
-            text=[[f"P({b} | {a}) = {val:.1%}" for b, val in zip(items_list, row)] for a, row in zip(items_list, assoc_matrix)],
-            hoverinfo="text"
-        ))
-        fig_heat.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=0, r=0, t=10, b=0),
-            height=420,
-            xaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=9), linecolor="#1a222f", tickangle=-45),
-            yaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=9), linecolor="#1a222f")
-        )
-        st.plotly_chart(fig_heat, use_container_width=True, config={"displayModeBar": False})
-    else:
-        st.info("Недостаточно данных для матрицы связей.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Матрица связей совместных покупок P(B | A)</p>')
+        
+        if len(items_list) > 1 and len(assoc_matrix) > 0:
+            fig_heat = go.Figure(data=go.Heatmap(
+                z=assoc_matrix,
+                x=items_list,
+                y=items_list,
+                colorscale=[[0, "#0f131a"], [0.4, "#17283c"], [1, "#ccff00"]],
+                hoverongaps=False,
+                text=[[f"P({b} | {a}) = {val:.1%}" for b, val in zip(items_list, row)] for a, row in zip(items_list, assoc_matrix)],
+                hoverinfo="text"
+            ))
+            fig_heat.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(family="Plus Jakarta Sans, sans-serif"),
+                margin=dict(l=0, r=0, t=10, b=0),
+                height=420,
+                xaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=9), linecolor="#1a222f", tickangle=-45),
+                yaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=9), linecolor="#1a222f")
+            )
+            st.plotly_chart(fig_heat, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info("Недостаточно данных для матрицы связей.")
     
 with cross_col_right:
-    st.markdown('<div class="custom-card" style="min-height: 520px;">', unsafe_allow_html=True)
-    st.markdown('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Интерактивный конструктор комбо</p>', unsafe_allow_html=True)
-    
-    if items_list:
-        selected_item = st.selectbox(
-            "Выберите основное блюдо (A):", 
-            items_list, 
-            key="cross_combo_select_single"
-        )
-    else:
-        selected_item = st.selectbox(
-            "Выберите основное блюдо (A):", 
-            ["Бургер True", "Бургер Чизбургер", "Бургер Шеф-Краб", "Бургер Веган", "Картофель фри", "Соус сырный", "Кока-кола", "Пиво крафтовое"], 
-            key="cross_combo_select_single"
-        )
+    with st.container(border=True):
+        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Интерактивный конструктор комбо</p>')
         
-    recommendations = []
-    if is_live and selected_item in items_list:
-        idx = items_list.index(selected_item)
-        probs = assoc_matrix[idx]
+        if items_list:
+            selected_item = st.selectbox(
+                "Выберите основное блюдо (A):", 
+                items_list, 
+                key="cross_combo_select_single_v3"
+            )
+        else:
+            selected_item = st.selectbox(
+                "Выберите основное блюдо (A):", 
+                ["Бургер True", "Бургер Чизбургер", "Бургер Шеф-Краб", "Бургер Веган", "Картофель фри", "Соус сырный", "Кока-кола", "Пиво крафтовое"], 
+                key="cross_combo_select_single_v3"
+            )
+            
+        recommendations = []
+        if is_live and selected_item in items_list:
+            idx = items_list.index(selected_item)
+            probs = assoc_matrix[idx]
+            
+            pairs = []
+            for j, p in enumerate(probs):
+                if items_list[j] != selected_item:
+                    pairs.append((items_list[j], p))
+            pairs.sort(key=lambda x: x[1], reverse=True)
+            recommendations = [(name, p, round(1.2 + p * 0.5, 1)) for name, p in pairs[:3]]
+        else:
+            recommendations = offline_assoc_lookup.get(selected_item, [("Картофель фри", 0.78, 1.3), ("Соус сырный", 0.72, 1.4), ("Кока-кола", 0.50, 1.1)])
+            
+        st.html("<p style='font-size:11px; font-weight:700; color:#ccff00; text-transform:uppercase; letter-spacing:0.5px; margin-top:16px;'>Топ сопутствующих позиций:</p>")
         
-        pairs = []
-        for j, p in enumerate(probs):
-            if items_list[j] != selected_item:
-                pairs.append((items_list[j], p))
-        pairs.sort(key=lambda x: x[1], reverse=True)
-        recommendations = [(name, p, round(1.2 + p * 0.5, 1)) for name, p in pairs[:3]]
-    else:
-        recommendations = offline_assoc_lookup.get(selected_item, [("Картофель фри", 0.78, 1.3), ("Соус сырный", 0.72, 1.4), ("Кока-кола", 0.50, 1.1)])
-        
-    st.markdown("<p style='font-size:11px; font-weight:700; color:#ccff00; text-transform:uppercase; letter-spacing:0.5px; margin-top:16px;'>Топ сопутствующих позиций:</p>", unsafe_allow_html=True)
-    
-    for name, prob, lift in recommendations:
-        st.markdown(f"""
-        <div style="display:flex; justify-content:space-between; align-items:center; background-color:#141923; padding:8px 14px; border-radius:12px; margin-bottom:6px; border:1px solid #1a222f;">
-            <div>
-                <span style="font-weight:700; color:#ffffff; font-size:12px;">{name}</span>
-                <br><span style="font-size:9px; color:#64748b;">Lift: {lift}x</span>
+        for name, prob, lift in recommendations:
+            st.html(f"""
+            <div style="display:flex; justify-content:space-between; align-items:center; background-color:#141923; padding:8px 14px; border-radius:12px; margin-bottom:6px; border:1px solid #1a222f;">
+                <div>
+                    <span style="font-weight:700; color:#ffffff; font-size:12px;">{name}</span>
+                    <br><span style="font-size:9px; color:#64748b;">Lift: {lift}x</span>
+                </div>
+                <span style="color:#ccff00; font-weight:800; font-size:12px;">{prob:.1%}</span>
             </div>
-            <span style="color:#ccff00; font-weight:800; font-size:12px;">{prob:.1%}</span>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    if recommendations:
-        combo_name = f"Комбо '{selected_item.split()[-1] if len(selected_item.split()) > 1 else selected_item} + {recommendations[0][0].split()[-1] if len(recommendations[0][0].split()) > 1 else recommendations[0][0]}'"
-        suggested_discount = 12
-        margin_lift = 8.4 + (recommendations[0][1] * 10)
-        
-        st.markdown(f"""
-        <div class="combo-card">
-            <p style="font-size:10px; font-weight:800; color:#ccff00; text-transform:uppercase; letter-spacing:1px; margin:0 0 4px 0;">🎯 AI КОМБО-РЕКОМЕНДАЦИЯ</p>
-            <h5 style="color:#ffffff; font-weight:800; font-size:13px; margin:0 0 6px 0;">{combo_name}</h5>
-            <p style="font-size:11px; color:#8b99ad; line-height:1.4; margin:0 0 8px 0;">
-                Запустите бандл с автоматической скидкой в <strong>{suggested_discount}%</strong> для увеличения оборачиваемости.
-            </p>
-            <div style="display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px; font-size:11px;">
-                <span style="color:#8b99ad;">Эффект чека:</span>
-                <span style="color:#ccff00; font-weight:700;">+{margin_lift:.1f}% маржи</span>
+            """)
+            
+        if recommendations:
+            combo_name = f"Комбо '{selected_item.split()[-1] if len(selected_item.split()) > 1 else selected_item} + {recommendations[0][0].split()[-1] if len(recommendations[0][0].split()) > 1 else recommendations[0][0]}'"
+            suggested_discount = 12
+            margin_lift = 8.4 + (recommendations[0][1] * 10)
+            
+            st.html(f"""
+            <div class="combo-card">
+                <p style="font-size:10px; font-weight:800; color:#ccff00; text-transform:uppercase; letter-spacing:1px; margin:0 0 4px 0;">🎯 AI КОМБО-РЕКОМЕНДАЦИЯ</p>
+                <h5 style="color:#ffffff; font-weight:800; font-size:13px; margin:0 0 6px 0;">{combo_name}</h5>
+                <p style="font-size:11px; color:#8b99ad; line-height:1.4; margin:0 0 8px 0;">
+                    Запустите бандл с автоматической скидкой в <strong>{suggested_discount}%</strong> для увеличения оборачиваемости.
+                </p>
+                <div style="display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px; font-size:11px;">
+                    <span style="color:#8b99ad;">Эффект чека:</span>
+                    <span style="color:#ccff00; font-weight:700;">+{margin_lift:.1f}% маржи</span>
+                </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+            """)
