@@ -15,15 +15,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom premium dark theme styling (Finpath & Donezo dark aesthetics)
+# Custom premium light theme styling (Skillset aesthetics)
 st.html("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
     /* Global Styles */
     .stApp {
-        background-color: #07090e !important;
-        color: #f1f5f9 !important;
+        background-color: #f3f4f6 !important;
+        color: #1f2937 !important;
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
     
@@ -47,12 +47,12 @@ st.html("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background-color: #0f131a;
-        border: 1px solid #1a222f;
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
         border-radius: 16px;
         padding: 16px 28px;
         margin-bottom: 28px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
     .logo-area {
         display: flex;
@@ -61,15 +61,6 @@ st.html("""
     }
     .logo-icon {
         font-size: 24px;
-        filter: drop-shadow(0 2px 8px rgba(204, 255, 0, 0.3));
-    }
-    .logo-text {
-        font-size: 20px;
-        font-weight: 800;
-        letter-spacing: -0.5px;
-        background: linear-gradient(90deg, #ffffff 0%, #a5b4fc 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
     }
     .header-right {
         display: flex;
@@ -83,21 +74,20 @@ st.html("""
         border-radius: 20px;
         letter-spacing: 0.5px;
         text-transform: uppercase;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     }
     .badge-live {
-        background-color: rgba(16, 185, 129, 0.1);
-        color: #10b981;
-        border: 1px solid rgba(16, 185, 129, 0.2);
+        background-color: #ecfdf5;
+        color: #047857;
+        border: 1px solid #d1fae5;
     }
     .badge-demo {
-        background-color: rgba(245, 158, 11, 0.1);
-        color: #f59e0b;
-        border: 1px solid rgba(245, 158, 11, 0.2);
+        background-color: #fffbeb;
+        color: #b45309;
+        border: 1px solid #fef3c7;
     }
     .profile-pic {
-        background-color: #ccff00;
-        color: #07090e;
+        background-color: #1f2937;
+        color: #ffffff;
         width: 36px;
         height: 36px;
         border-radius: 50%;
@@ -106,7 +96,6 @@ st.html("""
         justify-content: center;
         font-weight: 800;
         font-size: 13px;
-        box-shadow: 0 0 12px rgba(204, 255, 0, 0.4);
     }
     
     /* Section Headers */
@@ -116,7 +105,7 @@ st.html("""
         gap: 10px;
         margin-top: 36px;
         margin-bottom: 20px;
-        border-bottom: 1px solid #1a222f;
+        border-bottom: 1px solid #e5e7eb;
         padding-bottom: 8px;
     }
     .section-icon {
@@ -125,47 +114,47 @@ st.html("""
     .section-title {
         font-size: 15px;
         font-weight: 750;
-        color: #ffffff;
+        color: #111827;
         letter-spacing: 0.5px;
         text-transform: uppercase;
     }
 
     /* Target all st.container(border=True) to style them as sleek cards */
     div[data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: #0f131a !important;
-        border: 1px solid #1a222f !important;
+        background-color: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
         border-radius: 20px !important;
         padding: 24px !important;
-        box-shadow: 0 4px 25px rgba(0, 0, 0, 0.1) !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     div[data-testid="stVerticalBlockBorderWrapper"]:hover {
-        border-color: #2e3b4e !important;
+        border-color: #d1d5db !important;
         transform: translateY(-2px);
-        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.3) !important;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05) !important;
     }
     
     /* Support for highlighted container via :has() */
     div[data-testid="stVerticalBlockBorderWrapper"]:has(.highlight-marker) {
-        background: linear-gradient(135deg, #ccff00 0%, #a3cc00 100%) !important;
-        border: none !important;
+        background-color: #1e1f22 !important;
+        border: 1px solid #1e1f22 !important;
     }
     div[data-testid="stVerticalBlockBorderWrapper"]:has(.highlight-marker):hover {
-        box-shadow: 0 16px 30px rgba(204, 255, 0, 0.2) !important;
+        box-shadow: 0 8px 25px rgba(30, 30, 30, 0.25) !important;
     }
     
     /* Interactive combo recommendation card */
     .combo-card {
-        background-color: #121822;
-        border: 1px dashed rgba(204, 255, 0, 0.3);
+        background-color: #f9fafb;
+        border: 1px dashed #d1d5db;
         border-radius: 16px;
         padding: 20px;
         margin-top: 16px;
         transition: all 0.2s ease;
     }
     .combo-card:hover {
-        border-color: #ccff00;
-        background-color: #141c29;
+        border-color: #1f2937;
+        background-color: #f3f4f6;
     }
     
     /* HTML Tables styling */
@@ -180,22 +169,22 @@ st.html("""
         font-size: 13px;
     }
     .premium-table th {
-        background-color: #141923;
-        color: #8b99ad;
+        background-color: #f9fafb;
+        color: #4b5563;
         font-weight: 700;
         padding: 14px 16px;
-        border-bottom: 1px solid #1a222f;
+        border-bottom: 1px solid #e5e7eb;
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
     .premium-table td {
         padding: 14px 16px;
-        border-bottom: 1px solid #141923;
-        color: #f1f5f9;
+        border-bottom: 1px solid #f3f4f6;
+        color: #1f2937;
         font-weight: 500;
     }
     .premium-table tr:hover {
-        background-color: rgba(255, 255, 255, 0.015);
+        background-color: #f9fafb;
     }
     
     /* Badge styling */
@@ -209,30 +198,30 @@ st.html("""
         display: inline-block;
     }
     .badge-star {
-        background-color: rgba(204, 255, 0, 0.1);
-        color: #ccff00;
-        border: 1px solid rgba(204, 255, 0, 0.2);
+        background-color: #f3f4f6;
+        color: #1f2937;
+        border: 1px solid #d1d5db;
     }
     .badge-workhorse {
-        background-color: rgba(0, 210, 255, 0.1);
-        color: #00d2ff;
-        border: 1px solid rgba(0, 210, 255, 0.2);
+        background-color: #f9fafb;
+        color: #4b5563;
+        border: 1px solid #e5e7eb;
     }
     .badge-puzzle {
-        background-color: rgba(255, 165, 0, 0.1);
-        color: #ffa500;
-        border: 1px solid rgba(255, 165, 0, 0.2);
+        background-color: #f9fafb;
+        color: #9ca3af;
+        border: 1px solid #e5e7eb;
     }
     .badge-dog {
-        background-color: rgba(255, 51, 83, 0.1);
-        color: #ff3353;
-        border: 1px solid rgba(255, 51, 83, 0.2);
+        background-color: #fef2f2;
+        color: #ef4444;
+        border: 1px solid #fee2e2;
     }
     
     /* Clean Progress Bars */
     .progress-bar-container {
         width: 100%;
-        background-color: #141923;
+        background-color: #f3f4f6;
         border-radius: 8px;
         height: 6px;
         margin-top: 5px;
@@ -246,8 +235,8 @@ st.html("""
     
     /* Streamlit widgets overrides */
     div[data-baseweb="select"] {
-        background-color: #0f131a !important;
-        border: 1px solid #1a222f !important;
+        background-color: #ffffff !important;
+        border: 1px solid #d1d5db !important;
         border-radius: 12px !important;
     }
     div[data-baseweb="select"] > div {
@@ -255,16 +244,16 @@ st.html("""
         border: none !important;
     }
     div[data-baseweb="select"] span, div[data-baseweb="select"] div {
-        color: #ffffff !important;
+        color: #1f2937 !important;
     }
     
     /* Slider overrides */
     div[data-testid="stSlider"] [role="slider"] {
-        background-color: #ccff00 !important;
-        border: 2px solid #07090e !important;
+        background-color: #1f2937 !important;
+        border: 2px solid #ffffff !important;
     }
     div[data-testid="stSlider"] div[data-testid="stSliderTrack"] > div {
-        background: linear-gradient(90deg, #00d2ff 0%, #ccff00 100%) !important;
+        background: linear-gradient(90deg, #9ca3af 0%, #1f2937 100%) !important;
     }
     
     /* File Uploader override to look compact */
@@ -272,50 +261,89 @@ st.html("""
         padding: 0 !important;
     }
     div[data-testid="stFileUploader"] section {
-        background-color: #141923 !important;
-        border: 1px dashed #1a222f !important;
+        background-color: #f9fafb !important;
+        border: 1px dashed #d1d5db !important;
         border-radius: 12px !important;
         padding: 10px !important;
     }
     
     /* Button Styles */
     button[kind="secondary"] {
-        background-color: #0f131a !important;
-        color: #ffffff !important;
-        border: 1px solid #1a222f !important;
+        background-color: #ffffff !important;
+        color: #1f2937 !important;
+        border: 1px solid #d1d5db !important;
         border-radius: 12px !important;
         padding: 8px 18px !important;
         font-weight: 600 !important;
         transition: all 0.2s ease !important;
     }
     button[kind="secondary"]:hover {
-        background-color: #141923 !important;
-        border-color: #ccff00 !important;
-        color: #ccff00 !important;
-        box-shadow: 0 4px 12px rgba(204, 255, 0, 0.1);
+        background-color: #f9fafb !important;
+        border-color: #1f2937 !important;
+        color: #1f2937 !important;
     }
     button[kind="primary"] {
-        background-color: #ccff00 !important;
-        color: #07090e !important;
+        background-color: #1f2937 !important;
+        color: #ffffff !important;
         border: none !important;
         border-radius: 12px !important;
         padding: 8px 18px !important;
         font-weight: 700 !important;
         transition: all 0.2s ease !important;
-        box-shadow: 0 4px 15px rgba(204, 255, 0, 0.2);
+        box-shadow: 0 2px 8px rgba(31, 41, 55, 0.15);
     }
     button[kind="primary"]:hover {
-        background-color: #e5ff80 !important;
-        box-shadow: 0 6px 20px rgba(204, 255, 0, 0.35);
+        background-color: #374151 !important;
+        box-shadow: 0 4px 12px rgba(31, 41, 55, 0.25);
         transform: translateY(-1px);
     }
     
     /* Streamlit Alert message boxes */
     div[data-testid="stNotification"] {
-        background-color: #0f131a !important;
-        border: 1px solid #1a222f !important;
+        background-color: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
         border-radius: 12px !important;
-        color: #f1f5f9 !important;
+        color: #1f2937 !important;
+    }
+    
+    /* Metric Card Text Colors Rules */
+    .metric-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .metric-value {
+        font-size: 24px;
+        font-weight: 800;
+        margin-top: 6px;
+        letter-spacing: -0.5px;
+    }
+    .metric-subtext {
+        font-size: 11px;
+        margin-top: 2px;
+    }
+    
+    /* Metric trends */
+    .metric-trend {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-top: 8px;
+    }
+    .trend-up {
+        color: #00875a !important;
+    }
+    .trend-down {
+        color: #de350b !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.highlight-marker) .trend-up {
+        color: #57d9a3 !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.highlight-marker) .trend-down {
+        color: #ffbdad !important;
     }
 </style>
 """)
@@ -473,22 +501,25 @@ def make_metric_card_content(label, value, subtext, delta=None, is_positive=True
     highlight_marker = '<div class="highlight-marker"></div>' if is_highlighted else ''
     delta_html = ""
     if delta:
-        color = "#07090e" if is_highlighted else ("#ccff00" if is_positive else "#ff3353")
-        arrow = "↑" if is_positive else "↓"
-        delta_html = f'<div style="color: {color}; font-size: 11px; font-weight: 700; margin-top: 4px;">{arrow} {delta}</div>'
+        arrow = "↗" if is_positive else "↘"
+        color_class = "trend-up" if is_positive else "trend-down"
+        delta_html = f"""
+        <div class="metric-trend {color_class}">
+            <span style="font-size: 11px;">{arrow}</span>
+            <span>{delta}</span>
+        </div>
+        """
     
-    label_color = "rgba(7, 9, 14, 0.6)" if is_highlighted else "#8b99ad"
-    value_color = "#07090e" if is_highlighted else "#ffffff"
-    subtext_color = "rgba(7, 9, 14, 0.5)" if is_highlighted else "#64748b"
+    label_color = "#9ca3af" if is_highlighted else "#6b7280"
+    value_color = "#ffffff" if is_highlighted else "#111827"
+    subtext_color = "#6b7280" if is_highlighted else "#9ca3af"
     
     html = f"""
     {highlight_marker}
-    <div style="display: flex; flex-direction: column; justify-content: space-between; min-height: 100px;">
-        <div style="font-size: 11px; color: {label_color}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">{label}</div>
-        <div style="font-size: 28px; font-weight: 800; color: {value_color}; margin-top: 6px; letter-spacing: -0.5px;">{value}</div>
-        <div style="font-size: 11px; color: {subtext_color}; margin-top: 4px;">
-            <span>{subtext}</span>
-        </div>
+    <div style="display: flex; flex-direction: column; justify-content: space-between; min-height: 90px;">
+        <div class="metric-label" style="color: {label_color};">{label}</div>
+        <div class="metric-value" style="color: {value_color};">{value}</div>
+        <div class="metric-subtext" style="color: {subtext_color};">{subtext}</div>
         {delta_html}
     </div>
     """
@@ -506,15 +537,19 @@ def make_section_header(icon, title):
 # ==========================================
 # 📊 ROW 1: CONTROLS & KEY METRICS (KPIs)
 # ==========================================
-row1_col_control, row1_col_metrics = st.columns([1.2, 2.8])
-
-with row1_col_control:
-    with st.container(border=True):
-        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">📥 Импорт и База Данных</p>')
-        
-        # Compact uploader
-        uploaded_file = st.file_uploader("Импорт чеков CRM (CSV/XLSX)", type=["csv", "xlsx"], label_visibility="collapsed")
-        
+# ==========================================
+# 📥 ВЕРХНЯЯ ПАНЕЛЬ: ИМПОРТ И УПРАВЛЕНИЕ БД
+# ==========================================
+with st.container(border=True):
+    col_upload, col_action = st.columns([3, 1])
+    with col_upload:
+        uploaded_file = st.file_uploader(
+            "Импорт чеков CRM (CSV/XLSX)", 
+            type=["csv", "xlsx"], 
+            label_visibility="collapsed",
+            key="crm_file_uploader_light_v4"
+        )
+    with col_action:
         if uploaded_file is not None:
             try:
                 if uploaded_file.name.endswith(".csv"):
@@ -522,9 +557,9 @@ with row1_col_control:
                 else:
                     df_preview = pd.read_excel(uploaded_file, nrows=1)
                 
-                if st.button("📤 Импортировать файл", type="primary", use_container_width=True):
+                if st.button("📤 Импортировать файл", type="primary", use_container_width=True, key="import_btn_light"):
                     files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
-                    with st.spinner("Загрузка и переобучение ML моделей..."):
+                    with st.spinner("Загрузка..."):
                         res = post_data("/upload/checks", files=files)
                         if res.get("success"):
                             st.success("Импортировано!")
@@ -534,10 +569,9 @@ with row1_col_control:
             except Exception as e:
                 st.error("Ошибка парсинга.")
         else:
-            # Seeding database
             if not is_live:
-                if st.button("🚀 Демо-данные в 1 клик", type="primary", use_container_width=True):
-                    with st.spinner("Наполнение MySQL..."):
+                if st.button("🚀 Демо-данные в 1 клик", type="primary", use_container_width=True, key="seed_btn_light"):
+                    with st.spinner("Наполнение БД..."):
                         res = post_data("/upload/seed-demo")
                         if res.get("success"):
                             st.success("БД наполнена!")
@@ -545,52 +579,54 @@ with row1_col_control:
                         else:
                             st.error("БД недоступна.")
             else:
-                if st.button("🗑️ Сбросить базу данных", type="secondary", use_container_width=True):
-                    with st.spinner("Сброс MySQL..."):
+                if st.button("🗑️ Сбросить базу данных", type="secondary", use_container_width=True, key="reset_btn_light"):
+                    with st.spinner("Сброс БД..."):
                         res = post_data("/upload/seed-demo")
                         if res.get("success"):
                             st.success("Сброшено!")
                             st.rerun()
 
-with row1_col_metrics:
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        with st.container(border=True):
-            st.html(make_metric_card_content(
-                "Выручка ресторана", 
-                f"{total_revenue:,.0f} ₽".replace(",", " "), 
-                "За последние 180 дней", 
-                delta="12.4% vs прошлый месяц", 
-                is_positive=True,
-                is_highlighted=True
-            ))
-    with c2:
-        with st.container(border=True):
-            st.html(make_metric_card_content(
-                "Количество заказов", 
-                f"{total_orders:,.0f}".replace(",", " "), 
-                "Всего чеков закрыто", 
-                delta="8.2% к прошлому периоду", 
-                is_positive=True
-            ))
-    with c3:
-        with st.container(border=True):
-            st.html(make_metric_card_content(
-                "Средний чек", 
-                f"{avg_check:,.2f} ₽".replace(",", " "), 
-                "На одного посетителя", 
-                delta="5.1% рост чека", 
-                is_positive=True
-            ))
-    with c4:
-        with st.container(border=True):
-            st.html(make_metric_card_content(
-                "Продано позиций", 
-                f"{total_items_sold:,.0f}".replace(",", " "), 
-                f"Среднее в чеке: {avg_items_per_check:.1f} ед.", 
-                delta="3.9% рост глубины", 
-                is_positive=True
-            ))
+# ==========================================
+# 📊 РЯД KPI: КЛЮЧЕВЫЕ МЕТРИКИ
+# ==========================================
+c1, c2, c3, c4 = st.columns(4)
+with c1:
+    with st.container(border=True):
+        st.html(make_metric_card_content(
+            "Выручка ресторана", 
+            f"{total_revenue:,.0f} ₽".replace(",", " "), 
+            "За последние 180 дней", 
+            delta="12.4% vs прошлый месяц", 
+            is_positive=True,
+            is_highlighted=True
+        ))
+with c2:
+    with st.container(border=True):
+        st.html(make_metric_card_content(
+            "Количество заказов", 
+            f"{total_orders:,.0f}".replace(",", " "), 
+            "Всего чеков закрыто", 
+            delta="8.2% к прошлому периоду", 
+            is_positive=True
+        ))
+with c3:
+    with st.container(border=True):
+        st.html(make_metric_card_content(
+            "Средний чек", 
+            f"{avg_check:,.2f} ₽".replace(",", " "), 
+            "На одного посетителя", 
+            delta="5.1% рост чека", 
+            is_positive=True
+        ))
+with c4:
+    with st.container(border=True):
+        st.html(make_metric_card_content(
+            "Продано позиций", 
+            f"{total_items_sold:,.0f}".replace(",", " "), 
+            f"Среднее в чеке: {avg_items_per_check:.1f} ед.", 
+            delta="3.9% рост глубины", 
+            is_positive=True
+        ))
 
 # ==========================================
 # 📈 SECTION 1: DEMAND FORECAST (Прогноз спроса)
@@ -601,8 +637,8 @@ fore_col_left, fore_col_right = st.columns([1, 2.5])
 
 with fore_col_left:
     with st.container(border=True):
-        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Симулятор спроса</p>')
-        st.html('<p style="font-size:11px; color:#8b99ad; line-height:1.4; margin-bottom:20px;">Настройте уровень трафика гостей для оценки корректировок объемов поставок сырья.</p>')
+        st.html('<p style="font-size:12px; font-weight:800; color:#111827; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Симулятор спроса</p>')
+        st.html('<p style="font-size:11px; color:#6b7280; line-height:1.4; margin-bottom:20px;">Настройте уровень трафика гостей для оценки корректировок объемов поставок сырья.</p>')
         
         demand_shift = st.slider(
             "Симулятор трафика (%)", 
@@ -610,7 +646,7 @@ with fore_col_left:
             max_value=50, 
             value=0, 
             step=5,
-            key="demand_shift_slider_single_v3"
+            key="demand_shift_slider_single_v4"
         )
         
         factor = 1 + (demand_shift / 100.0)
@@ -624,26 +660,26 @@ with fore_col_left:
         base_beverages = int(adjusted_predicted_orders.sum() * 0.9)
         
         st.html(f"""
-        <div style="margin-top:24px; border-top: 1px solid #1a222f; padding-top:20px;">
-            <p style="font-size:12px; font-weight:700; color:#ccff00; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">📊 Заказ сырья (Прогноз):</p>
-            <div style="display:flex; justify-content:space-between; font-size:12px; color:#8b99ad; margin-bottom:8px;">
+        <div style="margin-top:24px; border-top: 1px solid #e5e7eb; padding-top:20px;">
+            <p style="font-size:12px; font-weight:700; color:#111827; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">📊 Заказ сырья (Прогноз):</p>
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:#6b7280; margin-bottom:8px;">
                 <span>🥩 Булочки и Котлеты</span>
-                <span style="font-weight:700; color:#fff;">{base_patties} шт.</span>
+                <span style="font-weight:700; color:#111827;">{base_patties} шт.</span>
             </div>
-            <div style="display:flex; justify-content:space-between; font-size:12px; color:#8b99ad; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:#6b7280; margin-bottom:8px;">
                 <span>🍟 Картофель фри (заморозка)</span>
-                <span style="font-weight:700; color:#fff;">{base_fries_kg} кг</span>
+                <span style="font-weight:700; color:#111827;">{base_fries_kg} кг</span>
             </div>
-            <div style="display:flex; justify-content:space-between; font-size:12px; color:#8b99ad;">
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:#6b7280;">
                 <span>🥤 Напитки и пиво</span>
-                <span style="font-weight:700; color:#fff;">{base_beverages} шт.</span>
+                <span style="font-weight:700; color:#111827;">{base_beverages} шт.</span>
             </div>
         </div>
         """)
     
 with fore_col_right:
     with st.container(border=True):
-        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">7-дневный прогноз продаж ИИ с доверительным интервалом</p>')
+        st.html('<p style="font-size:12px; font-weight:800; color:#111827; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">7-дневный прогноз продаж ИИ с доверительным интервалом</p>')
         
         if not df_fore.empty and not df_hist.empty:
             fig_fore = go.Figure()
@@ -653,7 +689,7 @@ with fore_col_right:
                 x=df_hist["date"],
                 y=df_hist["revenue"],
                 name="История (Факт)",
-                line=dict(color="#64748b", width=2.5),
+                line=dict(color="#9ca3af", width=2.5),
                 mode="lines"
             ))
             
@@ -663,7 +699,7 @@ with fore_col_right:
                 x=conn_df["date"],
                 y=[df_hist.tail(1)["revenue"].values[0], adjusted_predicted_rev.values[0]],
                 showlegend=False,
-                line=dict(color="#ccff00", width=2.5, dash="dot")
+                line=dict(color="#1f2937", width=2.5, dash="dot")
             ))
             
             # Forecast
@@ -671,7 +707,7 @@ with fore_col_right:
                 x=df_fore["date"],
                 y=adjusted_predicted_rev,
                 name="Прогноз ИИ",
-                line=dict(color="#ccff00", width=3.5),
+                line=dict(color="#1f2937", width=3.5),
                 mode="lines+markers"
             ))
             
@@ -680,21 +716,21 @@ with fore_col_right:
                 x=df_fore["date"].tolist() + df_fore["date"].tolist()[::-1],
                 y=adjusted_upper_bound.tolist() + adjusted_lower_bound.tolist()[::-1],
                 fill="toself",
-                fillcolor="rgba(204, 255, 0, 0.05)",
+                fillcolor="rgba(31, 41, 55, 0.05)",
                 line=dict(color="rgba(255,255,255,0)"),
                 hoverinfo="skip",
                 name="Доверительный интервал (95%)"
             ))
             
             fig_fore.update_layout(
-                template="plotly_dark",
+                template="plotly_white",
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="Plus Jakarta Sans, sans-serif"),
+                font=dict(family="Plus Jakarta Sans, sans-serif", color="#1f2937"),
                 margin=dict(l=0, r=0, t=10, b=0),
                 height=320,
-                xaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=10), linecolor="#1a222f"),
-                yaxis=dict(gridcolor="#1a222f", tickfont=dict(color="#64748b", size=10), zeroline=False),
+                xaxis=dict(showgrid=False, tickfont=dict(color="#6b7280", size=10), linecolor="#e5e7eb"),
+                yaxis=dict(gridcolor="#f3f4f6", tickfont=dict(color="#6b7280", size=10), zeroline=False),
                 hovermode="x unified",
                 legend=dict(
                     orientation="h",
@@ -702,7 +738,7 @@ with fore_col_right:
                     y=1.02,
                     xanchor="right",
                     x=1,
-                    font=dict(size=10, color="#8b99ad")
+                    font=dict(size=10, color="#4b5563")
                 )
             )
             st.plotly_chart(fig_fore, use_container_width=True, config={"displayModeBar": False})
@@ -718,17 +754,17 @@ menu_col_left, menu_col_right = st.columns([1.8, 1])
 
 with menu_col_left:
     with st.container(border=True):
-        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Матрица Smith-Shostack</p>')
+        st.html('<p style="font-size:12px; font-weight:800; color:#111827; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Матрица Smith-Shostack</p>')
         
         if not df_menu.empty:
             median_pop = df_menu["popularity_sales"].median()
             median_margin = df_menu["avg_margin"].median()
             
             colors_map = {
-                "Stars": "#ccff00",
-                "Workhorses": "#00d2ff",
-                "Puzzles": "#ffa500",
-                "Dogs": "#ff3353"
+                "Stars": "#1f2937",
+                "Workhorses": "#4b5563",
+                "Puzzles": "#9ca3af",
+                "Dogs": "#ef4444"
             }
             
             fig_scatter = px.scatter(
@@ -745,36 +781,36 @@ with menu_col_left:
                 }
             )
             
-            fig_scatter.add_vline(x=median_pop, line_dash="dash", line_color="#1a222f", line_width=1.5)
-            fig_scatter.add_hline(y=median_margin, line_dash="dash", line_color="#1a222f", line_width=1.5)
+            fig_scatter.add_vline(x=median_pop, line_dash="dash", line_color="#e5e7eb", line_width=1.5)
+            fig_scatter.add_hline(y=median_margin, line_dash="dash", line_color="#e5e7eb", line_width=1.5)
             
-            fig_scatter.add_annotation(x=median_pop * 1.5, y=median_margin * 1.5, text="🌟 STARS", showarrow=False, font=dict(color="rgba(204, 255, 0, 0.15)", size=14, weight="bold"))
-            fig_scatter.add_annotation(x=median_pop * 1.5, y=median_margin * 0.5, text="🐎 WORKHORSES", showarrow=False, font=dict(color="rgba(0, 210, 255, 0.15)", size=14, weight="bold"))
-            fig_scatter.add_annotation(x=median_pop * 0.5, y=median_margin * 1.5, text="❓ PUZZLES", showarrow=False, font=dict(color="rgba(255, 165, 0, 0.15)", size=14, weight="bold"))
-            fig_scatter.add_annotation(x=median_pop * 0.5, y=median_margin * 0.5, text="🐕 DOGS", showarrow=False, font=dict(color="rgba(255, 51, 83, 0.15)", size=14, weight="bold"))
+            fig_scatter.add_annotation(x=median_pop * 1.5, y=median_margin * 1.5, text="🌟 STARS", showarrow=False, font=dict(color="rgba(31, 41, 55, 0.08)", size=14, weight="bold"))
+            fig_scatter.add_annotation(x=median_pop * 1.5, y=median_margin * 0.5, text="🐎 WORKHORSES", showarrow=False, font=dict(color="rgba(75, 85, 99, 0.08)", size=14, weight="bold"))
+            fig_scatter.add_annotation(x=median_pop * 0.5, y=median_margin * 1.5, text="❓ PUZZLES", showarrow=False, font=dict(color="rgba(156, 163, 175, 0.08)", size=14, weight="bold"))
+            fig_scatter.add_annotation(x=median_pop * 0.5, y=median_margin * 0.5, text="🐕 DOGS", showarrow=False, font=dict(color="rgba(239, 68, 68, 0.08)", size=14, weight="bold"))
             
             fig_scatter.update_traces(
-                marker=dict(size=12, line=dict(width=1, color="#07090e")),
+                marker=dict(size=12, line=dict(width=1, color="#ffffff")),
                 textposition="top center",
-                textfont=dict(color="#f1f5f9", size=9)
+                textfont=dict(color="#1f2937", size=9)
             )
             
             fig_scatter.update_layout(
-                template="plotly_dark",
+                template="plotly_white",
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="Plus Jakarta Sans, sans-serif"),
+                font=dict(family="Plus Jakarta Sans, sans-serif", color="#1f2937"),
                 margin=dict(l=0, r=0, t=10, b=0),
                 height=350,
-                xaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=10), linecolor="#1a222f"),
-                yaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=10), linecolor="#1a222f"),
+                xaxis=dict(showgrid=False, tickfont=dict(color="#6b7280", size=10), linecolor="#e5e7eb"),
+                yaxis=dict(showgrid=False, tickfont=dict(color="#6b7280", size=10), linecolor="#e5e7eb"),
                 legend=dict(
                     orientation="h",
                     yanchor="bottom",
                     y=1.02,
                     xanchor="right",
                     x=1,
-                    font=dict(size=9, color="#8b99ad")
+                    font=dict(size=9, color="#4b5563")
                 )
             )
             st.plotly_chart(fig_scatter, use_container_width=True, config={"displayModeBar": False})
@@ -783,7 +819,7 @@ with menu_col_left:
     
 with menu_col_right:
     with st.container(border=True):
-        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:16px; text-transform:uppercase; letter-spacing:0.5px;">Стратегия оптимизации меню</p>')
+        st.html('<p style="font-size:12px; font-weight:800; color:#111827; margin-bottom:16px; text-transform:uppercase; letter-spacing:0.5px;">Стратегия оптимизации меню</p>')
         
         stars_count, workhorses_count, puzzles_count, dogs_count = 0, 0, 0, 0
         if not df_menu.empty:
@@ -793,39 +829,39 @@ with menu_col_right:
             dogs_count = int((df_menu["cluster_label"] == "Dogs").sum())
             
         st.html(f"""
-        <div style="margin-bottom: 12px; border-left: 3px solid #ccff00; padding-left: 10px;">
+        <div style="margin-bottom: 12px; border-left: 3px solid #1f2937; padding-left: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong style="color: #ccff00; font-size:12px;">🌟 STARS</strong>
-                <span style="font-size: 10px; background-color: rgba(204, 255, 0, 0.1); color: #ccff00; padding: 2px 6px; border-radius: 8px; font-weight: 700;">{stars_count} поз.</span>
+                <strong style="color: #1f2937; font-size:12px;">🌟 STARS</strong>
+                <span style="font-size: 10px; background-color: #f3f4f6; color: #1f2937; padding: 2px 6px; border-radius: 8px; font-weight: 700; border: 1px solid #d1d5db;">{stars_count} поз.</span>
             </div>
-            <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Высокая маржа и спрос. Не менять рецептуру, продвигать в топе.</p>
+            <p style="margin: 2px 0 0 0; font-size: 11px; color: #6b7280; line-height: 1.4;">Высокая маржа и спрос. Не менять рецептуру, продвигать в топе.</p>
         </div>
-        <div style="margin-bottom: 12px; border-left: 3px solid #00d2ff; padding-left: 10px;">
+        <div style="margin-bottom: 12px; border-left: 3px solid #4b5563; padding-left: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong style="color: #00d2ff; font-size:12px;">🐎 WORKHORSES</strong>
-                <span style="font-size: 10px; background-color: rgba(0, 210, 255, 0.1); color: #00d2ff; padding: 2px 6px; border-radius: 8px; font-weight: 700;">{workhorses_count} поз.</span>
+                <strong style="color: #4b5563; font-size:12px;">🐎 WORKHORSES</strong>
+                <span style="font-size: 10px; background-color: #f9fafb; color: #4b5563; padding: 2px 6px; border-radius: 8px; font-weight: 700; border: 1px solid #e5e7eb;">{workhorses_count} поз.</span>
             </div>
-            <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Высокий спрос, низкая маржа. Сократить фудкост сырья.</p>
+            <p style="margin: 2px 0 0 0; font-size: 11px; color: #6b7280; line-height: 1.4;">Высокий спрос, низкая маржа. Сократить фудкост сырья.</p>
         </div>
-        <div style="margin-bottom: 12px; border-left: 3px solid #ffa500; padding-left: 10px;">
+        <div style="margin-bottom: 12px; border-left: 3px solid #9ca3af; padding-left: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong style="color: #ffa500; font-size:12px;">❓ PUZZLES</strong>
-                <span style="font-size: 10px; background-color: rgba(255, 165, 0, 0.1); color: #ffa500; padding: 2px 6px; border-radius: 8px; font-weight: 700;">{puzzles_count} поз.</span>
+                <strong style="color: #9ca3af; font-size:12px;">❓ PUZZLES</strong>
+                <span style="font-size: 10px; background-color: #f9fafb; color: #9ca3af; padding: 2px 6px; border-radius: 8px; font-weight: 700; border: 1px solid #e5e7eb;">{puzzles_count} поз.</span>
             </div>
-            <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Низкий спрос, высокая маржа. Стимулировать акциями.</p>
+            <p style="margin: 2px 0 0 0; font-size: 11px; color: #6b7280; line-height: 1.4;">Низкий спрос, высокая маржа. Стимулировать акциями.</p>
         </div>
-        <div style="margin-bottom: 0px; border-left: 3px solid #ff3353; padding-left: 10px;">
+        <div style="margin-bottom: 0px; border-left: 3px solid #ef4444; padding-left: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong style="color: #ff3353; font-size:12px;">🐕 DOGS</strong>
-                <span style="font-size: 10px; background-color: rgba(255, 51, 83, 0.1); color: #ff3353; padding: 2px 6px; border-radius: 8px; font-weight: 700;">{dogs_count} поз.</span>
+                <strong style="color: #ef4444; font-size:12px;">🐕 DOGS</strong>
+                <span style="font-size: 10px; background-color: #fef2f2; color: #ef4444; padding: 2px 6px; border-radius: 8px; font-weight: 700; border: 1px solid #fee2e2;">{dogs_count} поз.</span>
             </div>
-            <p style="margin: 2px 0 0 0; font-size: 11px; color: #8b99ad; line-height: 1.4;">Низкий спрос и маржа. Исключить или радикально переработать.</p>
+            <p style="margin: 2px 0 0 0; font-size: 11px; color: #6b7280; line-height: 1.4;">Низкий спрос и маржа. Исключить или радикально переработать.</p>
         </div>
         """)
 
 # Table directly under quadrants
 with st.container(border=True):
-    st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Подробный анализ эффективности блюд</p>')
+    st.html('<p style="font-size:12px; font-weight:800; color:#111827; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Подробный анализ эффективности блюд</p>')
     
     if not df_menu.empty:
         table_html = """
@@ -857,11 +893,11 @@ with st.container(border=True):
                 
             table_html += f"""
                     <tr>
-                        <td style="color:#ffffff; font-weight:700;">{row['item_name']}</td>
-                        <td style="color:#8b99ad;">{row['category']}</td>
+                        <td style="color:#111827; font-weight:700;">{row['item_name']}</td>
+                        <td style="color:#6b7280;">{row['category']}</td>
                         <td>{f"{row['popularity_sales']:,}".replace(",", " ")} шт.</td>
                         <td>{f"{row['avg_margin']:,.2f}".replace(",", " ")} ₽</td>
-                        <td style="color:#ccff00;">{f"{row['total_revenue']:,.0f}".replace(",", " ")} ₽</td>
+                        <td style="color:#111827; font-weight:700;">{f"{row['total_revenue']:,.0f}".replace(",", " ")} ₽</td>
                         <td><span class="badge {badge_class}">{cluster}</span></td>
                     </tr>
             """
@@ -883,27 +919,27 @@ cross_col_left, cross_col_right = st.columns([1.5, 1])
 
 with cross_col_left:
     with st.container(border=True):
-        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Матрица связей совместных покупок P(B | A)</p>')
+        st.html('<p style="font-size:12px; font-weight:800; color:#111827; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Матрица связей совместных покупок P(B | A)</p>')
         
         if len(items_list) > 1 and len(assoc_matrix) > 0:
             fig_heat = go.Figure(data=go.Heatmap(
                 z=assoc_matrix,
                 x=items_list,
                 y=items_list,
-                colorscale=[[0, "#0f131a"], [0.4, "#17283c"], [1, "#ccff00"]],
+                colorscale=[[0, "#f9fafb"], [0.5, "#d1d5db"], [1, "#1f2937"]],
                 hoverongaps=False,
                 text=[[f"P({b} | {a}) = {val:.1%}" for b, val in zip(items_list, row)] for a, row in zip(items_list, assoc_matrix)],
                 hoverinfo="text"
             ))
             fig_heat.update_layout(
-                template="plotly_dark",
+                template="plotly_white",
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="Plus Jakarta Sans, sans-serif"),
+                font=dict(family="Plus Jakarta Sans, sans-serif", color="#1f2937"),
                 margin=dict(l=0, r=0, t=10, b=0),
                 height=420,
-                xaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=9), linecolor="#1a222f", tickangle=-45),
-                yaxis=dict(showgrid=False, tickfont=dict(color="#64748b", size=9), linecolor="#1a222f")
+                xaxis=dict(showgrid=False, tickfont=dict(color="#6b7280", size=9), linecolor="#e5e7eb", tickangle=-45),
+                yaxis=dict(showgrid=False, tickfont=dict(color="#6b7280", size=9), linecolor="#e5e7eb")
             )
             st.plotly_chart(fig_heat, use_container_width=True, config={"displayModeBar": False})
         else:
@@ -911,19 +947,19 @@ with cross_col_left:
     
 with cross_col_right:
     with st.container(border=True):
-        st.html('<p style="font-size:12px; font-weight:800; color:#fff; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Интерактивный конструктор комбо</p>')
+        st.html('<p style="font-size:12px; font-weight:800; color:#111827; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Интерактивный конструктор комбо</p>')
         
         if items_list:
             selected_item = st.selectbox(
                 "Выберите основное блюдо (A):", 
                 items_list, 
-                key="cross_combo_select_single_v3"
+                key="cross_combo_select_single_v4"
             )
         else:
             selected_item = st.selectbox(
                 "Выберите основное блюдо (A):", 
                 ["Бургер True", "Бургер Чизбургер", "Бургер Шеф-Краб", "Бургер Веган", "Картофель фри", "Соус сырный", "Кока-кола", "Пиво крафтовое"], 
-                key="cross_combo_select_single_v3"
+                key="cross_combo_select_single_v4"
             )
             
         recommendations = []
@@ -940,16 +976,16 @@ with cross_col_right:
         else:
             recommendations = offline_assoc_lookup.get(selected_item, [("Картофель фри", 0.78, 1.3), ("Соус сырный", 0.72, 1.4), ("Кока-кола", 0.50, 1.1)])
             
-        st.html("<p style='font-size:11px; font-weight:700; color:#ccff00; text-transform:uppercase; letter-spacing:0.5px; margin-top:16px;'>Топ сопутствующих позиций:</p>")
+        st.html("<p style='font-size:11px; font-weight:700; color:#1f2937; text-transform:uppercase; letter-spacing:0.5px; margin-top:16px;'>Топ сопутствующих позиций:</p>")
         
         for name, prob, lift in recommendations:
             st.html(f"""
-            <div style="display:flex; justify-content:space-between; align-items:center; background-color:#141923; padding:8px 14px; border-radius:12px; margin-bottom:6px; border:1px solid #1a222f;">
+            <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9fafb; padding:8px 14px; border-radius:12px; margin-bottom:6px; border:1px solid #e5e7eb;">
                 <div>
-                    <span style="font-weight:700; color:#ffffff; font-size:12px;">{name}</span>
-                    <br><span style="font-size:9px; color:#64748b;">Lift: {lift}x</span>
+                    <span style="font-weight:700; color:#1f2937; font-size:12px;">{name}</span>
+                    <br><span style="font-size:9px; color:#6b7280;">Lift: {lift}x</span>
                 </div>
-                <span style="color:#ccff00; font-weight:800; font-size:12px;">{prob:.1%}</span>
+                <span style="color:#00875a; font-weight:800; font-size:12px;">{prob:.1%}</span>
             </div>
             """)
             
@@ -960,14 +996,14 @@ with cross_col_right:
             
             st.html(f"""
             <div class="combo-card">
-                <p style="font-size:10px; font-weight:800; color:#ccff00; text-transform:uppercase; letter-spacing:1px; margin:0 0 4px 0;">🎯 AI КОМБО-РЕКОМЕНДАЦИЯ</p>
-                <h5 style="color:#ffffff; font-weight:800; font-size:13px; margin:0 0 6px 0;">{combo_name}</h5>
-                <p style="font-size:11px; color:#8b99ad; line-height:1.4; margin:0 0 8px 0;">
+                <p style="font-size:10px; font-weight:800; color:#1f2937; text-transform:uppercase; letter-spacing:1px; margin:0 0 4px 0;">🎯 AI КОМБО-РЕКОМЕНДАЦИЯ</p>
+                <h5 style="color:#111827; font-weight:800; font-size:13px; margin:0 0 6px 0;">{combo_name}</h5>
+                <p style="font-size:11px; color:#4b5563; line-height:1.4; margin:0 0 8px 0;">
                     Запустите бандл с автоматической скидкой в <strong>{suggested_discount}%</strong> для увеличения оборачиваемости.
                 </p>
-                <div style="display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px; font-size:11px;">
-                    <span style="color:#8b99ad;">Эффект чека:</span>
-                    <span style="color:#ccff00; font-weight:700;">+{margin_lift:.1f}% маржи</span>
+                <div style="display:flex; justify-content:space-between; border-top:1px solid #e5e7eb; padding-top:8px; font-size:11px;">
+                    <span style="color:#6b7280;">Эффект чека:</span>
+                    <span style="color:#00875a; font-weight:700;">+{margin_lift:.1f}% маржи</span>
                 </div>
             </div>
             """)
