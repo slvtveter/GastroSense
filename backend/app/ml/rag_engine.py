@@ -107,18 +107,18 @@ class RAGEngine:
     def _load_static_chunks(self) -> List[KnowledgeChunk]:
         static_files: List[Path] = []
 
+        # Only index docs that are genuinely useful context for an end user
+        # asking the in-app assistant about their restaurant. The root
+        # README explains what the product is, which is fair game for
+        # "what is GastroSense" questions. Deliberately NOT indexing
+        # frontend/README.md (generic Vite boilerplate) or docs/*.md
+        # (internal outreach/deploy notes for the developer, not the
+        # restaurant owner) - those used to get retrieved for unrelated
+        # questions and the assistant would confidently answer with
+        # sales-pitch copy instead of saying it found nothing relevant.
         root_readme = self._repo_root / "README.md"
         if root_readme.exists():
             static_files.append(root_readme)
-
-        frontend_readme = self._repo_root / "frontend" / "README.md"
-        if frontend_readme.exists():
-            static_files.append(frontend_readme)
-
-        docs_dir = self._repo_root / "docs"
-        if docs_dir.exists():
-            static_files.extend(sorted(docs_dir.glob("*.md")))
-            static_files.extend(sorted(docs_dir.glob("*.txt")))
 
         rag_docs_dir = self._repo_root / "backend" / "rag_sources"
         if rag_docs_dir.exists():

@@ -17,11 +17,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/app ./app
 COPY backend/.env .env
 
-# Копируем статические RAG-источники (README/docs), чтобы они были
-# доступны RAG-движку внутри контейнера на той же относительной глубине,
-# что и в локальной разработке.
+# Копируем README, чтобы он был доступен RAG-движку внутри контейнера
+# на той же относительной глубине, что и в локальной разработке.
 COPY README.md ./README.md
-COPY docs ./docs
 
 # Открываем порт
 EXPOSE 8000
