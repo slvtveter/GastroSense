@@ -115,6 +115,34 @@ const CustomMenuTooltip = ({ active, payload }: any) => {
     return null;
 };
 
+const CustomForecastTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload || !payload.length) return null;
+    const data = payload[0]?.payload;
+    if (!data) return null;
+
+    const fmt = (value: number | null | undefined) =>
+        value == null ? null : `$${value.toFixed(2)}`;
+
+    const rows: { label: string; value: string; color: string }[] = [];
+    if (data.revenue != null) rows.push({ label: 'Actual revenue', value: fmt(data.revenue)!, color: '#3b82f6' });
+    if (data.expected != null) rows.push({ label: 'AI forecast', value: fmt(data.expected)!, color: '#94a3b8' });
+    if (data.lower != null && data.bandRange != null) {
+        rows.push({ label: '80% range', value: `${fmt(data.lower)} – ${fmt(data.lower + data.bandRange)}`, color: '#60a5fa' });
+    }
+
+    return (
+        <div className="bg-[#1e293b] border border-[var(--color-brand-border)] p-3 rounded-lg shadow-xl text-[var(--color-brand-text)] text-xs space-y-1 max-w-[220px]">
+            <p className="font-bold text-white mb-1">{label}</p>
+            {rows.map((row) => (
+                <p key={row.label} className="flex justify-between gap-3">
+                    <span style={{ color: row.color }}>{row.label}</span>
+                    <span className="font-semibold">{row.value}</span>
+                </p>
+            ))}
+        </div>
+    );
+};
+
 const MENU_QUADRANTS = [
     { label: 'Stars', emoji: '⭐', color: '#34d399', desc: 'High popularity & margin — promote heavily.' },
     { label: 'Workhorses', emoji: '💪', color: '#3b82f6', desc: 'Popular, lower margin — keep, optimize cost.' },
@@ -346,7 +374,7 @@ function App() {
                             <div className="mb-4">
                                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">Revenue History & AI Forecast</h3>
                                 <p className="text-xs text-[var(--color-brand-muted)] mt-1">
-                                    Solid area = actual daily revenue. Dashed line = next 7 days predicted by the model. Shaded band = 95% confidence interval.
+                                    Solid area = actual daily revenue. Dashed line = next 7 days predicted by the model. Shaded band = 80% confidence interval.
                                 </p>
                             </div>
                             <div className="flex-1 w-full flex flex-col gap-5 min-h-0">
@@ -366,9 +394,9 @@ function App() {
                                                 <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" vertical={false} />
                                                 <XAxis dataKey="name" stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} />
                                                 <YAxis stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
-                                                <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #2d3748', borderRadius: '8px', color: '#f1f5f9' }} itemStyle={{ color: '#e2e8f0' }} />
+                                                <Tooltip content={<CustomForecastTooltip />} />
 
-                                                {/* 95% confidence band: invisible baseline (lower) + visible delta (bandRange) stacked */}
+                                                {/* 80% confidence band: invisible baseline (lower) + visible delta (bandRange) stacked */}
                                                 <Area type="monotone" dataKey="lower" stackId="ci" stroke="none" fill="transparent" legendType="none" />
                                                 <Area type="monotone" dataKey="bandRange" stackId="ci" stroke="none" fill="#3b82f6" fillOpacity={0.1} name="Confidence interval" />
 
@@ -391,7 +419,7 @@ function App() {
                                                 </p>
                                             </div>
                                             <div className="bg-[#111827] border border-[var(--color-brand-border)] rounded-xl p-3">
-                                                <p className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-1">95% confidence range</p>
+                                                <p className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-1">80% confidence range</p>
                                                 <p className="text-lg font-extrabold text-white">${(forecastLower / 1000).toFixed(1)}k – ${(forecastUpper / 1000).toFixed(1)}k</p>
                                             </div>
                                         </div>

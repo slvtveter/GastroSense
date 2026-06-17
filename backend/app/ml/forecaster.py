@@ -159,10 +159,12 @@ def run_demand_forecast(db: Session, forecast_horizon: int = 7) -> List[Dict[str
         pred_rev = full_df.loc[idx, "revenue"]
         pred_ord = int(full_df.loc[idx, "orders_count"])
         
-        # Standard error scales with forecasting horizon: SE = RMSE * sqrt(h)
+        # Standard error scales with forecasting horizon: SE = RMSE * sqrt(h).
+        # Use an 80% interval (z=1.28) instead of 95% (z=1.96) - the 95% band
+        # was too wide to be useful on small demo datasets and dominated the chart.
         se = rmse_rev * np.sqrt(h)
-        lower_bound = max(0.0, pred_rev - 1.96 * se)
-        upper_bound = pred_rev + 1.96 * se
+        lower_bound = max(0.0, pred_rev - 1.28 * se)
+        upper_bound = pred_rev + 1.28 * se
         
         forecast_results.append({
             "date": date_val,
