@@ -1,12 +1,45 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useMutation } from '@tanstack/react-query';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Message = {
   id: number;
   text: string;
   sender: 'user' | 'ai';
 };
+
+// Render the AI's markdown (tables, bold, lists) with styles that fit the dark
+// chat bubble, instead of dumping raw "| ... |" / "**" syntax as plain text.
+function MarkdownMessage({ text }: { text: string }) {
+  return (
+    <div className="space-y-2 [&_p]:m-0 [&_ul]:my-1 [&_ul]:pl-4 [&_ul]:list-disc [&_ol]:my-1 [&_ol]:pl-4 [&_ol]:list-decimal [&_li]:my-0.5 [&_strong]:text-white [&_strong]:font-semibold [&_code]:bg-[#0b0f19] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[12px]">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          table: ({ children }) => (
+            <div className="overflow-x-auto my-2 rounded-lg border border-[var(--color-brand-border)]">
+              <table className="w-full text-[12px] border-collapse">{children}</table>
+            </div>
+          ),
+          thead: ({ children }) => <thead className="bg-[#0b0f19]">{children}</thead>,
+          th: ({ children }) => (
+            <th className="text-left font-semibold text-white px-2 py-1.5 border-b border-[var(--color-brand-border)]">{children}</th>
+          ),
+          td: ({ children }) => (
+            <td className="px-2 py-1.5 border-b border-[var(--color-brand-border)]/50">{children}</td>
+          ),
+          a: ({ children, href }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-[var(--color-brand-accent)] underline">{children}</a>
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 const sendMessageToApi = async (message: string) => {
   const response = await axios.post('http://localhost:8000/api/v1/ml/chat', { message });
@@ -72,7 +105,7 @@ export default function ChatInterface() {
                 ? 'bg-[var(--color-brand-accent)] text-white shadow-lg'
                 : 'bg-[#1e293b] text-[var(--color-brand-text)] border border-[var(--color-brand-border)]'
             }`}>
-              {msg.text}
+              {msg.sender === 'ai' ? <MarkdownMessage text={msg.text} /> : msg.text}
             </div>
           </div>
         ))}
