@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import ChatInterface from './components/ChatInterface';
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ScatterChart, Scatter, ZAxis, ReferenceLine, ReferenceArea } from 'recharts';
-import { Upload, TrendingUp, Pizza, Network, FileDown, Check, Sparkles } from 'lucide-react';
+import { Upload, TrendingUp, Pizza, Network, FileDown, Check, Sparkles, HelpCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
@@ -37,6 +37,13 @@ type ComboRecommendation = {
     prob: number;
 };
 
+type ForecastModelInfo = {
+    model: string | null;
+    description: string | null;
+    validation_rmse: number | null;
+    validated_on_days: number | null;
+};
+
 const EMPTY_CROSS_SALES: CrossSalesMatrix = {
     index: [],
     columns: [],
@@ -45,6 +52,8 @@ const EMPTY_CROSS_SALES: CrossSalesMatrix = {
 
 // API Callers
 const fetchStats = async () => (await axios.get('http://localhost:8000/api/v1/analytics/stats')).data;
+const fetchForecastModelInfo = async (): Promise<ForecastModelInfo> =>
+    (await axios.get('http://localhost:8000/api/v1/analytics/forecast-info')).data;
 const fetchForecast = async (): Promise<ForecastPoint[]> => {
     const hist = (await axios.get('http://localhost:8000/api/v1/analytics/history?days=14')).data;
     const fore = (await axios.get('http://localhost:8000/api/v1/analytics/forecast')).data;
@@ -159,6 +168,7 @@ function App() {
   // Queries
   const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['stats'], queryFn: fetchStats });
   const { data: chartData = [], isLoading: chartLoading } = useQuery<ForecastPoint[]>({ queryKey: ['forecast'], queryFn: fetchForecast });
+  const { data: modelInfo } = useQuery<ForecastModelInfo>({ queryKey: ['forecast-info'], queryFn: fetchForecastModelInfo });
   const { data: menuData = [], isLoading: menuLoading } = useQuery<MenuItemPoint[]>({ queryKey: ['menu'], queryFn: fetchMenu });
   const { data: crossData = EMPTY_CROSS_SALES, isLoading: crossLoading } = useQuery<CrossSalesMatrix>({ queryKey: ['cross'], queryFn: fetchCrossSales });
 
@@ -372,7 +382,23 @@ function App() {
                     {activeTab === 'forecast' && (
                         <>
                             <div className="mb-4">
-                                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Revenue History & AI Forecast</h3>
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Revenue History & AI Forecast</h3>
+                                    {modelInfo?.model && (
+                                        <div className="group relative inline-flex">
+                                            <HelpCircle size={15} className="text-[var(--color-brand-muted)] cursor-help hover:text-white transition-colors" />
+                                            <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute left-0 top-6 z-20 w-72 bg-[#0b0f19] border border-[var(--color-brand-border)] rounded-xl p-3 shadow-2xl text-left">
+                                                <p className="text-xs font-bold text-white mb-1">How we calculated this: {modelInfo.model}</p>
+                                                <p className="text-[11px] text-[var(--color-brand-muted)] leading-relaxed">{modelInfo.description}</p>
+                                                {modelInfo.validation_rmse != null && (
+                                                    <p className="text-[11px] text-emerald-400 mt-2">
+                                                        Picked automatically: lowest validation error (${modelInfo.validation_rmse.toFixed(2)}) over the last {modelInfo.validated_on_days} days, vs. Ridge/Random Forest/XGBoost/LightGBM.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                                 <p className="text-xs text-[var(--color-brand-muted)] mt-1">
                                     Solid area = actual daily revenue. Dashed line = next 7 days predicted by the model. Shaded band = 80% confidence interval.
                                 </p>

@@ -5,8 +5,15 @@ import pandas as pd
 from typing import List, Dict, Any
 from app import schemas, crud, models
 from app.database import get_db
+from app.ml.forecaster import get_last_model_info
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
+
+
+@router.get("/forecast-info")
+def get_forecast_model_info():
+    """Explain which model produced the current forecast and why it was chosen."""
+    return get_last_model_info()
 
 @router.get("/menu", response_model=List[schemas.MenuAnalysisResponse])
 def get_menu_analysis(db: Session = Depends(get_db)):
