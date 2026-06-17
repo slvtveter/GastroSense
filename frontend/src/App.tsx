@@ -13,6 +13,8 @@ type ForecastPoint = {
     name: string;
     revenue: number | null;
     expected: number | null;
+    lower: number | null;
+    bandRange: number | null;
 };
 
 type MenuItemPoint = {
@@ -46,10 +48,32 @@ const fetchStats = async () => (await axios.get('http://localhost:8000/api/v1/an
 const fetchForecast = async (): Promise<ForecastPoint[]> => {
     const hist = (await axios.get('http://localhost:8000/api/v1/analytics/history?days=14')).data;
     const fore = (await axios.get('http://localhost:8000/api/v1/analytics/forecast')).data;
-    
+
     const merged: ForecastPoint[] = [];
-    hist.forEach((h: any) => merged.push({ name: h.date, revenue: h.revenue != null ? Number(h.revenue) : null, expected: null }));
-    fore.forEach((f: any) => merged.push({ name: f.date, revenue: null, expected: f.predicted_revenue != null ? Number(f.predicted_revenue) : null }));
+    hist.forEach((h: any, i: number) => {
+        const isLastHistDay = i === hist.length - 1;
+        const revenue = h.revenue != null ? Number(h.revenue) : null;
+        merged.push({
+            name: h.date,
+            revenue,
+            // Anchor the forecast line to the last actual point so it connects
+            // visually instead of leaving a gap between history and forecast.
+            expected: isLastHistDay ? revenue : null,
+            lower: null,
+            bandRange: null,
+        });
+    });
+    fore.forEach((f: any) => {
+        const lower = f.lower_bound_revenue != null ? Number(f.lower_bound_revenue) : null;
+        const upper = f.upper_bound_revenue != null ? Number(f.upper_bound_revenue) : null;
+        merged.push({
+            name: f.date,
+            revenue: null,
+            expected: f.predicted_revenue != null ? Number(f.predicted_revenue) : null,
+            lower,
+            bandRange: lower != null && upper != null ? upper - lower : null,
+        });
+    });
     return merged;
 };
 const fetchMenu = async (): Promise<MenuItemPoint[]> => {
@@ -128,6 +152,15 @@ function App() {
   };
 
   const topAssociations = selectedItemForCombo ? getTopAssociations(selectedItemForCombo) : [];
+
+  const forecastDays = chartData.filter((d) => d.revenue == null && d.expected != null);
+  const historyDays = chartData.filter((d) => d.revenue != null);
+  const next7Total = forecastDays.reduce((acc, d) => acc + (d.expected ?? 0), 0);
+  const last7Days = historyDays.slice(-7);
+  const last7Total = last7Days.reduce((acc, d) => acc + (d.revenue ?? 0), 0);
+  const forecastTrendPct = last7Total > 0 ? ((next7Total - last7Total) / last7Total) * 100 : 0;
+  const forecastLower = forecastDays.length ? Math.min(...forecastDays.map((d) => d.lower ?? 0)) : 0;
+  const forecastUpper = forecastDays.length ? Math.max(...forecastDays.map((d) => (d.lower ?? 0) + (d.bandRange ?? 0))) : 0;
 
   const menuMeanX = menuData.length ? menuData.reduce((acc, d) => acc + d.popularity_sales, 0) / menuData.length : 0;
   const menuMeanY = menuData.length ? menuData.reduce((acc, d) => acc + d.avg_margin, 0) / menuData.length : 0;
@@ -275,7 +308,7 @@ function App() {
 
         <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 xl:grid-cols-3 gap-8">
             
-            <section className="xl:col-span-2 flex flex-col gap-8">
+            <section className="xl:col-span-2 flex flex-col gap-8 min-w-0">
                 
                 {/* Real KPI Data */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -310,29 +343,59 @@ function App() {
                     
                     {activeTab === 'forecast' && (
                         <>
-                            <div className="flex justify-between items-center mb-6">
+                            <div className="mb-4">
                                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">Revenue History & AI Forecast</h3>
+                                <p className="text-xs text-[var(--color-brand-muted)] mt-1">
+                                    Solid area = actual daily revenue. Dashed line = next 7 days predicted by the model. Shaded band = 95% confidence interval.
+                                </p>
                             </div>
-                            <div className="flex-1 w-full pt-4">
+                            <div className="flex-1 w-full flex flex-col gap-5 min-h-0">
                                 {chartLoading ? (
-                                    <div className="flex items-center justify-center h-full text-[var(--color-brand-muted)]">Loading metrics...</div>
+                                    <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)]">Loading metrics...</div>
                                 ) : (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" vertical={false} />
-                                        <XAxis dataKey="name" stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} />
-                                        <YAxis stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
-                                        <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #2d3748', borderRadius: '8px', color: '#f1f5f9' }} itemStyle={{ color: '#e2e8f0' }} />
-                                        <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Actual Revenue" />
-                                        <Line type="monotone" dataKey="expected" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} name="AI Forecast" />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
+                                    <>
+                                        <div className="flex-1 min-h-[280px]">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                                <defs>
+                                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" vertical={false} />
+                                                <XAxis dataKey="name" stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} />
+                                                <YAxis stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
+                                                <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #2d3748', borderRadius: '8px', color: '#f1f5f9' }} itemStyle={{ color: '#e2e8f0' }} />
+
+                                                {/* 95% confidence band: invisible baseline (lower) + visible delta (bandRange) stacked */}
+                                                <Area type="monotone" dataKey="lower" stackId="ci" stroke="none" fill="transparent" legendType="none" />
+                                                <Area type="monotone" dataKey="bandRange" stackId="ci" stroke="none" fill="#3b82f6" fillOpacity={0.1} name="Confidence interval" />
+
+                                                <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Actual Revenue" />
+                                                <Line type="monotone" dataKey="expected" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} name="AI Forecast" />
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        </div>
+
+                                        {/* Forecast insights */}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-shrink-0">
+                                            <div className="bg-[#111827] border border-[var(--color-brand-border)] rounded-xl p-3">
+                                                <p className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-1">Next 7 days forecast</p>
+                                                <p className="text-lg font-extrabold text-white">${(next7Total / 1000).toFixed(1)}k</p>
+                                            </div>
+                                            <div className="bg-[#111827] border border-[var(--color-brand-border)] rounded-xl p-3">
+                                                <p className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-1">vs. last 7 days</p>
+                                                <p className={`text-lg font-extrabold ${forecastTrendPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    {forecastTrendPct >= 0 ? '+' : ''}{forecastTrendPct.toFixed(1)}%
+                                                </p>
+                                            </div>
+                                            <div className="bg-[#111827] border border-[var(--color-brand-border)] rounded-xl p-3">
+                                                <p className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-1">95% confidence range</p>
+                                                <p className="text-lg font-extrabold text-white">${(forecastLower / 1000).toFixed(1)}k – ${(forecastUpper / 1000).toFixed(1)}k</p>
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         </>
@@ -493,7 +556,7 @@ function App() {
                 </div>
             </section>
 
-            <section className="xl:col-span-1 flex flex-col h-[calc(100vh-140px)]">
+            <section className="xl:col-span-1 flex flex-col h-[calc(100vh-140px)] min-w-0">
                 <ChatInterface />
             </section>
 

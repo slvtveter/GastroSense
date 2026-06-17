@@ -30,32 +30,32 @@ class AgentManager:
 
         if not self.model:
             return (
-                "Gemini пока не настроен. Вот что нашёл RAG:\n\n"
+                "Gemini isn't configured yet. Here's what RAG found:\n\n"
                 f"{context}"
             )
         
         # 2. Формируем промпт для Gemini
         prompt = f"""
-        Ты - эксперт-аналитик ресторана GastroSense.
-        Отвечай по-русски, кратко и по делу.
-        Используй только релевантный контекст из RAG. Если данных в контексте недостаточно, так и скажи и не выдумывай цифры.
-        По возможности ссылайся на источники в формате [source:title].
-        
-        Контекст:
+        You are an expert restaurant analyst for GastroSense.
+        Reply in the same language the user's question is written in (English or Russian), concisely and to the point.
+        Use only the relevant context from the RAG retrieval below. If the context doesn't have enough data, say so plainly instead of making up numbers.
+        Where possible, cite sources in the format [source:title].
+
+        Context:
         {context}
 
-        Вопрос пользователя:
+        User question:
         {query}
         """
         
         # 3. Отправляем в Gemini
         try:
             response = self.model.generate_content(prompt)
-            return response.text or "Не удалось сформировать ответ."
+            return response.text or "Couldn't generate a response."
         except Exception as e:
             error_msg = str(e)
             print(f"DEBUG: AI Error: {error_msg}")
-            return f"Ошибка AI: {error_msg}. Проверьте ваш API ключ."
+            return f"AI error: {error_msg}. Check your API key."
 
 # Создаем глобальный экземпляр
 agent_manager = AgentManager()
