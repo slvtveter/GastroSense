@@ -27,13 +27,26 @@ class RAGEngine:
     """Build and query a lightweight RAG index from app data and repo docs."""
 
     def __init__(self) -> None:
-        self._repo_root = Path(__file__).resolve().parents[3]
+        self._repo_root = self._find_repo_root()
         self._static_chunks = self._load_static_chunks()
         self._chunks: List[KnowledgeChunk] = []
         self._vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5))
         self._matrix = None
         self._last_refresh_at: datetime | None = None
         self._rebuild_index(self._static_chunks)
+
+    def _find_repo_root(self) -> Path:
+        """Walk up from this file looking for README.md or docs/, since the
+        on-disk nesting depth differs between local dev (backend/app/ml/...)
+        and the Docker image (app/ml/...) — a fixed parents[N] index breaks
+        in one of the two environments.
+        """
+        here = Path(__file__).resolve()
+        for candidate in here.parents:
+            if (candidate / "README.md").exists() or (candidate / "docs").is_dir():
+                return candidate
+        # Fall back to the old fixed-depth guess if nothing matched.
+        return here.parents[3]
 
     def refresh_from_db(self, db: Session) -> None:
         """Rebuild the RAG corpus from static docs plus current DB state."""

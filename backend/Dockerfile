@@ -8,14 +8,20 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Копируем requirements
-COPY requirements.txt .
+COPY backend/requirements.txt .
 
 # Устанавливаем зависимости Python
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем код приложения
-COPY ./app ./app
-COPY .env .env
+COPY backend/app ./app
+COPY backend/.env .env
+
+# Копируем статические RAG-источники (README/docs), чтобы они были
+# доступны RAG-движку внутри контейнера на той же относительной глубине,
+# что и в локальной разработке.
+COPY README.md ./README.md
+COPY docs ./docs
 
 # Открываем порт
 EXPOSE 8000
