@@ -11,11 +11,23 @@ from pathlib import Path
 env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# Tried in order. gemini-2.5-flash is the better model but has a tiny free-tier
-# daily quota (20 RPD); gemini-3.1-flash-lite is a step down in quality but has
-# a much higher daily quota (500 RPD), so it's a sane fallback once the first
-# model's quota is exhausted instead of just failing for the rest of the day.
-GEMINI_MODEL_CANDIDATES = ["gemini-2.5-flash", "gemini-3.1-flash-lite"]
+# Tried in order, best quality first. Most Gemini text models on the free tier
+# share a tiny ~20 RPD quota, so a 150-question test run burns through several
+# of them in minutes. gemini-3.1-flash-lite (500 RPD) and the two Gemma models
+# (1.5K RPD each) have far higher daily caps and sit at the end of the chain as
+# deep reserves - lower quality, but still better than showing the user a raw
+# "out of capacity" error. Model ids must match genai.list_models() exactly
+# (e.g. "gemini-3-flash-preview", not "gemini-3-flash") - re-verify with
+# list_models() whenever quotas/availability change.
+GEMINI_MODEL_CANDIDATES = [
+    "gemini-2.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemma-4-26b-a4b-it",
+    "gemma-4-31b-it",
+]
 
 
 def _is_quota_error(error: Exception) -> bool:
@@ -63,7 +75,11 @@ class AgentManager:
         {query}
         """
 
-        # 3. Отправляем в Gemini, при квоте/рейт-лимите пробуем следующую модель
+        # 3. Отправляем в Gemini: при любой ошибке (квота, рейт-лимит, неверное
+        # имя модели и т.п.) пробуем следующую модель в цепочке, а не сдаемся
+        # сразу. С 7 моделями в списке часть имен/квот может оказаться
+        # недействительной или измениться - цепочка должна быть отказоустойчивой
+        # к этому, а не только к ошибкам квоты.
         last_error: Exception | None = None
         for index, model in enumerate(self.models):
             try:
@@ -71,14 +87,15 @@ class AgentManager:
                 return response.text or "Couldn't generate a response."
             except Exception as e:
                 last_error = e
-                is_last_candidate = index == len(self.models) - 1
-                if _is_quota_error(e) and not is_last_candidate:
-                    print(f"DEBUG: {GEMINI_MODEL_CANDIDATES[index]} hit quota, falling back to next model.")
-                    continue
-                print(f"DEBUG: AI Error: {e}")
-                break
+                print(f"DEBUG: {GEMINI_MODEL_CANDIDATES[index]} failed ({e}), trying next model.")
+                continue
 
-        return f"AI error: {last_error}. Check your API key."
+        if _is_quota_error(last_error):
+            return (
+                "The AI assistant is temporarily at capacity (all models hit their request "
+                "quota). Please try again in a minute."
+            )
+        return "The AI assistant ran into an unexpected error. Please try again shortly."
 
 # Создаем глобальный экземпляр
 agent_manager = AgentManager()
