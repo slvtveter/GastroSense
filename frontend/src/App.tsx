@@ -200,10 +200,16 @@ function App() {
   const forecastLower = forecastDays.length ? Math.min(...forecastDays.map((d) => d.lower ?? 0)) : 0;
   const forecastUpper = forecastDays.length ? Math.max(...forecastDays.map((d) => (d.lower ?? 0) + (d.bandRange ?? 0))) : 0;
 
+  const niceCeil = (value: number): number => {
+      if (value <= 0) return 0;
+      const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+      return Math.ceil(value / magnitude) * magnitude;
+  };
+
   const menuMeanX = menuData.length ? menuData.reduce((acc, d) => acc + d.popularity_sales, 0) / menuData.length : 0;
   const menuMeanY = menuData.length ? menuData.reduce((acc, d) => acc + d.avg_margin, 0) / menuData.length : 0;
-  const menuMaxX = menuData.length ? Math.max(...menuData.map((d) => d.popularity_sales)) * 1.1 : 0;
-  const menuMaxY = menuData.length ? Math.max(...menuData.map((d) => d.avg_margin)) * 1.1 : 0;
+  const menuMaxX = menuData.length ? niceCeil(Math.max(...menuData.map((d) => d.popularity_sales)) * 1.1) : 0;
+  const menuMaxY = menuData.length ? niceCeil(Math.max(...menuData.map((d) => d.avg_margin)) * 1.1) : 0;
 
 
   const [isUploading, setIsUploading] = useState(false);
@@ -483,11 +489,13 @@ function App() {
 
                                                     <XAxis
                                                         type="number" dataKey="popularity_sales" name="Popularity"
+                                                        domain={[0, menuMaxX]}
                                                         stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false}
                                                         label={{ value: 'Popularity (units sold)', position: 'insideBottom', offset: -20, fill: '#64748b', fontSize: 11 }}
                                                     />
                                                     <YAxis
                                                         type="number" dataKey="avg_margin" name="Margin"
+                                                        domain={[0, menuMaxY]}
                                                         stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false}
                                                         tickFormatter={(value) => `$${value}`}
                                                         label={{ value: 'Avg margin ($)', angle: -90, position: 'insideLeft', fill: '#64748b', fontSize: 11 }}

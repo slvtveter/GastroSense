@@ -217,7 +217,7 @@ async def seed_demo(
 ):
     """Seed 30 days of realistic sales data based on selected preset and trigger model training synchronously."""
     try:
-        stats = seed_demo_data(db, days=30, preset_name=preset_name)
+        stats = seed_demo_data(db, days=365, preset_name=preset_name)
         
         # Run training synchronously for snappy demo experience
         run_async_ml_training(db)
