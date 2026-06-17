@@ -38,7 +38,10 @@ class AgentManager:
 
     async def process_query(self, query: str):
         # 1. RAG: Ищем контекст в наших данных
-        context = rag_engine.build_context(query, top_k=5)
+        # The corpus is now ~7 rollup chunks total (one per data domain)
+        # instead of ~90 per-row chunks, so top_k=8 effectively returns
+        # everything relevant instead of gambling on which 5 chunks rank highest.
+        context = rag_engine.build_context(query, top_k=8)
 
         if not self.models:
             return (

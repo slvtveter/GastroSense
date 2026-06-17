@@ -141,12 +141,13 @@ def test_chat_agent_uses_rag_context(db_session: Session):
             self.last_prompt = prompt
             return SimpleNamespace(text="ok")
 
-    original_model = agent_manager.model
-    agent_manager.model = FakeModel()
+    original_models = agent_manager.models
+    fake_model = FakeModel()
+    agent_manager.models = [fake_model]
     try:
         result = asyncio.run(agent_manager.process_query("Расскажи про Coffee A"))
         assert result == "ok"
-        assert "Coffee A" in agent_manager.model.last_prompt
-        assert "database:menu_analysis" in agent_manager.model.last_prompt
+        assert "Coffee A" in fake_model.last_prompt
+        assert "database:menu_analysis" in fake_model.last_prompt
     finally:
-        agent_manager.model = original_model
+        agent_manager.models = original_models

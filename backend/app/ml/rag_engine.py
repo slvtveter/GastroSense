@@ -84,13 +84,17 @@ class RAGEngine:
     def build_context(self, query: str, top_k: int = 5) -> str:
         results = self.search(query, top_k=top_k)
         if not results:
-            return "Контекст не найден."
+            return "No matching context found."
 
         blocks: List[str] = []
         for idx, item in enumerate(results, start=1):
             blocks.append(
                 f"[{idx}] {item['source']} | {item['title']} | relevance={item['score']:.3f}\n"
-                f"{self._truncate(item['text'], 700)}"
+                # Rollup chunks (e.g. 30 days of history, 25 menu items) are
+                # dense lists - 700 chars used to cut them off mid-list, the
+                # same root cause as needing a high top_k. Now there are only
+                # ~7 chunks total, so a generous per-chunk budget is cheap.
+                f"{self._truncate(item['text'], 4000)}"
             )
         return "\n\n".join(blocks)
 
@@ -195,6 +199,10 @@ class RAGEngine:
         ]
 
     def _build_history_chunks(self, db: Session) -> List[KnowledgeChunk]:
+        """One rollup chunk covering the last 30 days, instead of one chunk
+        per day - so a 'summarize sales' question retrieves the whole
+        picture in a single chunk rather than needing top_k >= 30 to avoid
+        missing days."""
         rows = db.execute(
             text(
                 """
@@ -208,92 +216,82 @@ class RAGEngine:
                 """
             )
         ).fetchall()
+        if not rows:
+            return []
 
-        chunks: List[KnowledgeChunk] = []
-        for row in reversed(rows):
-            day = str(row[0])
-            revenue = float(row[1] or 0.0)
-            orders_count = int(row[2] or 0)
-            chunks.append(
-                KnowledgeChunk(
-                    id=f"db:history:{day}",
-                    source="database:history",
-                    title=f"Daily sales {day}",
-                    text=f"Daily sales for {day}: revenue {revenue:.2f}, orders {orders_count}.",
-                    metadata={"day": day, "revenue": revenue, "orders_count": orders_count},
-                )
+        rows = list(reversed(rows))
+        lines = [
+            f"{row[0]}: revenue {float(row[1] or 0.0):.2f}, orders {int(row[2] or 0)}"
+            for row in rows
+        ]
+        text_content = f"Daily sales for the last {len(rows)} days (oldest to newest):\n" + "\n".join(lines)
+
+        return [
+            KnowledgeChunk(
+                id="db:history",
+                source="database:history",
+                title=f"Daily sales (last {len(rows)} days)",
+                text=text_content,
+                metadata={"days": len(rows)},
             )
-        return chunks
+        ]
 
     def _build_menu_chunks(self, db: Session) -> List[KnowledgeChunk]:
+        """One rollup chunk for the whole menu engineering analysis."""
         rows = (
             db.query(models.MenuAnalysis)
             .order_by(models.MenuAnalysis.popularity_sales.desc(), models.MenuAnalysis.updated_at.desc())
             .limit(25)
             .all()
         )
+        if not rows:
+            return []
 
-        chunks: List[KnowledgeChunk] = []
-        for row in rows:
-            avg_margin = float(row.avg_margin or 0.0)
-            total_revenue = float(row.total_revenue or 0.0)
-            chunks.append(
-                KnowledgeChunk(
-                    id=f"db:menu:{row.item_name}",
-                    source="database:menu_analysis",
-                    title=f"Menu item {row.item_name}",
-                    text=(
-                        f"Menu analysis for {row.item_name}. "
-                        f"Category: {row.category or 'Other'}. "
-                        f"Popularity sales: {int(row.popularity_sales or 0)}. "
-                        f"Average margin: {avg_margin:.2f}. "
-                        f"Total revenue: {total_revenue:.2f}. "
-                        f"Cluster: {row.cluster_label}."
-                    ),
-                    metadata={
-                        "item_name": row.item_name,
-                        "category": row.category,
-                        "popularity_sales": int(row.popularity_sales or 0),
-                        "avg_margin": avg_margin,
-                        "total_revenue": total_revenue,
-                        "cluster_label": row.cluster_label,
-                    },
-                )
+        lines = [
+            f"{row.item_name} ({row.category or 'Other'}): popularity {int(row.popularity_sales or 0)}, "
+            f"avg margin {float(row.avg_margin or 0.0):.2f}, total revenue {float(row.total_revenue or 0.0):.2f}, "
+            f"cluster {row.cluster_label}"
+            for row in rows
+        ]
+        text_content = f"Menu engineering analysis (BCG matrix) - top {len(rows)} items:\n" + "\n".join(lines)
+
+        return [
+            KnowledgeChunk(
+                id="db:menu",
+                source="database:menu_analysis",
+                title=f"Menu analysis (top {len(rows)} items)",
+                text=text_content,
+                metadata={"items": len(rows)},
             )
-        return chunks
+        ]
 
     def _build_forecast_chunks(self, db: Session) -> List[KnowledgeChunk]:
+        """One rollup chunk for the entire forecast horizon, instead of one
+        chunk per day - this is what was causing 'summarize the forecast'
+        questions to only see 5 of 7 days."""
         rows = db.query(models.DemandForecast).order_by(models.DemandForecast.date.asc()).all()
+        if not rows:
+            return []
 
-        chunks: List[KnowledgeChunk] = []
-        for row in rows:
-            predicted_revenue = float(row.predicted_revenue or 0.0)
-            predicted_orders = int(row.predicted_orders or 0)
-            lower_bound = float(row.lower_bound_revenue or 0.0)
-            upper_bound = float(row.upper_bound_revenue or 0.0)
-            date_value = row.date.isoformat()
-            chunks.append(
-                KnowledgeChunk(
-                    id=f"db:forecast:{date_value}",
-                    source="database:forecast",
-                    title=f"Forecast {date_value}",
-                    text=(
-                        f"Forecast for {date_value}: predicted revenue {predicted_revenue:.2f}, "
-                        f"predicted orders {predicted_orders}, "
-                        f"lower bound {lower_bound:.2f}, upper bound {upper_bound:.2f}."
-                    ),
-                    metadata={
-                        "date": date_value,
-                        "predicted_revenue": predicted_revenue,
-                        "predicted_orders": predicted_orders,
-                        "lower_bound_revenue": lower_bound,
-                        "upper_bound_revenue": upper_bound,
-                    },
-                )
+        lines = [
+            f"{row.date.isoformat()}: predicted revenue {float(row.predicted_revenue or 0.0):.2f}, "
+            f"predicted orders {int(row.predicted_orders or 0)}"
+            for row in rows
+        ]
+        text_content = f"Demand forecast for the next {len(rows)} days:\n" + "\n".join(lines)
+
+        return [
+            KnowledgeChunk(
+                id="db:forecast",
+                source="database:forecast",
+                title=f"Demand forecast ({len(rows)} days)",
+                text=text_content,
+                metadata={"days": len(rows)},
             )
-        return chunks
+        ]
 
     def _build_item_mix_chunks(self, db: Session) -> List[KnowledgeChunk]:
+        """One rollup chunk for the top items by revenue."""
         category_expr = func.coalesce(models.OrderItem.category, "Other")
         rows = (
             db.query(
@@ -308,35 +306,28 @@ class RAGEngine:
             .limit(20)
             .all()
         )
+        if not rows:
+            return []
 
-        chunks: List[KnowledgeChunk] = []
-        for row in rows:
-            total_quantity = int(row.total_quantity or 0)
-            total_revenue = float(row.total_revenue or 0.0)
-            avg_price = float(row.avg_price or 0.0)
-            chunks.append(
-                KnowledgeChunk(
-                    id=f"db:item:{row.item_name}",
-                    source="database:item_mix",
-                    title=f"Top item {row.item_name}",
-                    text=(
-                        f"Item {row.item_name} from category {row.category}. "
-                        f"Sold quantity {total_quantity}. "
-                        f"Revenue {total_revenue:.2f}. "
-                        f"Average price {avg_price:.2f}."
-                    ),
-                    metadata={
-                        "item_name": row.item_name,
-                        "category": row.category,
-                        "total_quantity": total_quantity,
-                        "total_revenue": total_revenue,
-                        "avg_price": avg_price,
-                    },
-                )
+        lines = [
+            f"{row.item_name} ({row.category}): qty {int(row.total_quantity or 0)}, "
+            f"revenue {float(row.total_revenue or 0.0):.2f}, avg price {float(row.avg_price or 0.0):.2f}"
+            for row in rows
+        ]
+        text_content = f"Top {len(rows)} items by revenue:\n" + "\n".join(lines)
+
+        return [
+            KnowledgeChunk(
+                id="db:item_mix",
+                source="database:item_mix",
+                title=f"Top items by revenue ({len(rows)})",
+                text=text_content,
+                metadata={"items": len(rows)},
             )
-        return chunks
+        ]
 
     def _build_category_chunks(self, db: Session) -> List[KnowledgeChunk]:
+        """One rollup chunk for the category breakdown."""
         category_expr = func.coalesce(models.OrderItem.category, "Other")
         rows = (
             db.query(
@@ -349,28 +340,24 @@ class RAGEngine:
             .limit(10)
             .all()
         )
+        if not rows:
+            return []
 
-        chunks: List[KnowledgeChunk] = []
-        for row in rows:
-            total_quantity = int(row.total_quantity or 0)
-            total_revenue = float(row.total_revenue or 0.0)
-            chunks.append(
-                KnowledgeChunk(
-                    id=f"db:category:{row.category}",
-                    source="database:category_mix",
-                    title=f"Category {row.category}",
-                    text=(
-                        f"Category {row.category}: sold quantity {total_quantity}, "
-                        f"revenue {total_revenue:.2f}."
-                    ),
-                    metadata={
-                        "category": row.category,
-                        "total_quantity": total_quantity,
-                        "total_revenue": total_revenue,
-                    },
-                )
+        lines = [
+            f"{row.category}: qty {int(row.total_quantity or 0)}, revenue {float(row.total_revenue or 0.0):.2f}"
+            for row in rows
+        ]
+        text_content = f"Category breakdown ({len(rows)} categories):\n" + "\n".join(lines)
+
+        return [
+            KnowledgeChunk(
+                id="db:category_mix",
+                source="database:category_mix",
+                title="Category breakdown",
+                text=text_content,
+                metadata={"categories": len(rows)},
             )
-        return chunks
+        ]
 
     def _read_text_file(self, path: Path) -> str:
         try:
