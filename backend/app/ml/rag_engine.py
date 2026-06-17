@@ -94,7 +94,7 @@ class RAGEngine:
                 # dense lists - 700 chars used to cut them off mid-list, the
                 # same root cause as needing a high top_k. Now there are only
                 # ~7 chunks total, so a generous per-chunk budget is cheap.
-                f"{self._truncate(item['text'], 4000)}"
+                f"{self._truncate(item['text'], 6000)}"
             )
         return "\n\n".join(blocks)
 
@@ -199,11 +199,13 @@ class RAGEngine:
         ]
 
     def _build_history_chunks(self, db: Session) -> List[KnowledgeChunk]:
-        """One rollup chunk covering the last 30 days, instead of one chunk
-        per day - so a 'summarize sales' question retrieves the whole
-        picture in a single chunk rather than needing top_k >= 30 to avoid
-        missing days."""
-        rows = db.execute(
+        """One rollup chunk with daily detail for the last 30 days plus a
+        weekly summary covering the full available history. Daily-only
+        rollups left questions like "revenue 2 months ago" with literally no
+        matching data even when a full year was seeded - the rollup window
+        just didn't reach that far back. Weekly granularity is coarser but
+        gives every period in the dataset *some* answer instead of none."""
+        daily_rows = db.execute(
             text(
                 """
                 SELECT DATE(timestamp) AS day,
@@ -216,23 +218,47 @@ class RAGEngine:
                 """
             )
         ).fetchall()
-        if not rows:
+        if not daily_rows:
             return []
 
-        rows = list(reversed(rows))
-        lines = [
+        daily_rows = list(reversed(daily_rows))
+        daily_lines = [
             f"{row[0]}: revenue {float(row[1] or 0.0):.2f}, orders {int(row[2] or 0)}"
-            for row in rows
+            for row in daily_rows
         ]
-        text_content = f"Daily sales for the last {len(rows)} days (oldest to newest):\n" + "\n".join(lines)
+
+        weekly_rows = db.execute(
+            text(
+                """
+                SELECT MIN(DATE(timestamp)) AS week_start,
+                       SUM(total_amount) AS revenue,
+                       COUNT(*) AS orders_count
+                FROM orders
+                GROUP BY strftime('%Y-%W', timestamp)
+                ORDER BY week_start ASC
+                """
+            )
+        ).fetchall()
+        weekly_lines = [
+            f"Week of {row[0]}: revenue {float(row[1] or 0.0):.2f}, orders {int(row[2] or 0)}"
+            for row in weekly_rows
+        ]
+
+        text_content = (
+            f"Daily sales for the last {len(daily_rows)} days (oldest to newest):\n"
+            + "\n".join(daily_lines)
+            + f"\n\nWeekly revenue summary for the full available history ({len(weekly_rows)} weeks, "
+            "use this for periods older than 30 days):\n"
+            + "\n".join(weekly_lines)
+        )
 
         return [
             KnowledgeChunk(
                 id="db:history",
                 source="database:history",
-                title=f"Daily sales (last {len(rows)} days)",
+                title=f"Daily sales (last {len(daily_rows)} days + {len(weekly_rows)}-week summary)",
                 text=text_content,
-                metadata={"days": len(rows)},
+                metadata={"days": len(daily_rows), "weeks": len(weekly_rows)},
             )
         ]
 
