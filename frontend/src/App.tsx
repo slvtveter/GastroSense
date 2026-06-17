@@ -13,8 +13,6 @@ type ForecastPoint = {
     name: string;
     revenue: number | null;
     expected: number | null;
-    lower: number | null;
-    bandRange: number | null;
 };
 
 type MenuItemPoint = {
@@ -76,19 +74,13 @@ const fetchForecast = async (): Promise<ForecastPoint[]> => {
             // Anchor the forecast line to the last actual point so it connects
             // visually instead of leaving a gap between history and forecast.
             expected: isLastHistDay ? revenue : null,
-            lower: null,
-            bandRange: null,
         });
     });
     fore.forEach((f: any) => {
-        const lower = f.lower_bound_revenue != null ? Number(f.lower_bound_revenue) : null;
-        const upper = f.upper_bound_revenue != null ? Number(f.upper_bound_revenue) : null;
         merged.push({
             name: f.date,
             revenue: null,
             expected: f.predicted_revenue != null ? Number(f.predicted_revenue) : null,
-            lower,
-            bandRange: lower != null && upper != null ? upper - lower : null,
         });
     });
     return merged;
@@ -143,9 +135,6 @@ const CustomForecastTooltip = ({ active, payload, label }: any) => {
     const rows: { label: string; value: string; color: string }[] = [];
     if (data.revenue != null) rows.push({ label: 'Actual revenue', value: fmt(data.revenue)!, color: '#3b82f6' });
     if (data.expected != null) rows.push({ label: 'AI forecast', value: fmt(data.expected)!, color: '#94a3b8' });
-    if (data.lower != null && data.bandRange != null) {
-        rows.push({ label: '80% range', value: `${fmt(data.lower)} – ${fmt(data.lower + data.bandRange)}`, color: '#60a5fa' });
-    }
 
     return (
         <div className="bg-[#1e293b] border border-[var(--color-brand-border)] p-3 rounded-lg shadow-xl text-[var(--color-brand-text)] text-xs space-y-1 max-w-[220px]">
@@ -205,8 +194,6 @@ function App() {
   const last7Days = historyDays.slice(-7);
   const last7Total = last7Days.reduce((acc, d) => acc + (d.revenue ?? 0), 0);
   const forecastTrendPct = last7Total > 0 ? ((next7Total - last7Total) / last7Total) * 100 : 0;
-  const forecastLower = forecastDays.length ? Math.min(...forecastDays.map((d) => d.lower ?? 0)) : 0;
-  const forecastUpper = forecastDays.length ? Math.max(...forecastDays.map((d) => (d.lower ?? 0) + (d.bandRange ?? 0))) : 0;
 
   const niceCeil = (value: number): number => {
       if (value <= 0) return 0;
@@ -439,7 +426,7 @@ function App() {
                                     )}
                                 </div>
                                 <p className="text-xs text-[var(--color-brand-muted)] mt-1">
-                                    Solid area = actual daily revenue. Dashed line = next 7 days predicted by the model. Shaded band = 80% confidence interval.
+                                    Solid area = actual daily revenue. Dashed line = next 7 days predicted by the model.
                                 </p>
                             </div>
                             <div className="flex-1 w-full flex flex-col gap-5 min-h-0">
@@ -461,10 +448,6 @@ function App() {
                                                 <YAxis stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
                                                 <Tooltip content={<CustomForecastTooltip />} />
 
-                                                {/* 80% confidence band: invisible baseline (lower) + visible delta (bandRange) stacked */}
-                                                <Area type="monotone" dataKey="lower" stackId="ci" stroke="none" fill="transparent" legendType="none" />
-                                                <Area type="monotone" dataKey="bandRange" stackId="ci" stroke="none" fill="#3b82f6" fillOpacity={0.1} name="Confidence interval" />
-
                                                 <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Actual Revenue" />
                                                 <Line type="monotone" dataKey="expected" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} name="AI Forecast" />
                                                 </AreaChart>
@@ -472,7 +455,7 @@ function App() {
                                         </div>
 
                                         {/* Forecast insights */}
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-shrink-0">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
                                             <div className="bg-[#111827] border border-[var(--color-brand-border)] rounded-xl p-3">
                                                 <p className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-1">Next 7 days forecast</p>
                                                 <p className="text-lg font-extrabold text-white">${(next7Total / 1000).toFixed(1)}k</p>
@@ -482,10 +465,6 @@ function App() {
                                                 <p className={`text-lg font-extrabold ${forecastTrendPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                     {forecastTrendPct >= 0 ? '+' : ''}{forecastTrendPct.toFixed(1)}%
                                                 </p>
-                                            </div>
-                                            <div className="bg-[#111827] border border-[var(--color-brand-border)] rounded-xl p-3">
-                                                <p className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-1">80% confidence range</p>
-                                                <p className="text-lg font-extrabold text-white">${(forecastLower / 1000).toFixed(1)}k – ${(forecastUpper / 1000).toFixed(1)}k</p>
                                             </div>
                                         </div>
                                     </>
