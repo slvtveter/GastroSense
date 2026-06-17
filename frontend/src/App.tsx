@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ChatInterface from './components/ChatInterface';
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ScatterChart, Scatter, ZAxis, ReferenceLine, ReferenceArea } from 'recharts';
 import { Upload, TrendingUp, Pizza, Network, FileDown, Check, Sparkles, HelpCircle } from 'lucide-react';
@@ -44,6 +44,12 @@ type ForecastModelInfo = {
     validated_on_days: number | null;
 };
 
+type SeedStatus = {
+    in_progress: boolean;
+    preset: string | null;
+    days_seeded: number | null;
+};
+
 const EMPTY_CROSS_SALES: CrossSalesMatrix = {
     index: [],
     columns: [],
@@ -54,6 +60,8 @@ const EMPTY_CROSS_SALES: CrossSalesMatrix = {
 const fetchStats = async () => (await axios.get('http://localhost:8000/api/v1/analytics/stats')).data;
 const fetchForecastModelInfo = async (): Promise<ForecastModelInfo> =>
     (await axios.get('http://localhost:8000/api/v1/analytics/forecast-info')).data;
+const fetchSeedStatus = async (): Promise<SeedStatus> =>
+    (await axios.get('http://localhost:8000/api/v1/upload/seed-status')).data;
 const fetchForecast = async (): Promise<ForecastPoint[]> => {
     const hist = (await axios.get('http://localhost:8000/api/v1/analytics/history?days=14')).data;
     const fore = (await axios.get('http://localhost:8000/api/v1/analytics/forecast')).data;
@@ -225,8 +233,10 @@ function App() {
       onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ['stats'] });
           queryClient.invalidateQueries({ queryKey: ['forecast'] });
+          queryClient.invalidateQueries({ queryKey: ['forecast-info'] });
           queryClient.invalidateQueries({ queryKey: ['menu'] });
           queryClient.invalidateQueries({ queryKey: ['cross'] });
+          queryClient.invalidateQueries({ queryKey: ['seed-status'] });
           setSelectedItemForCombo(null);
       }
   });
@@ -236,6 +246,26 @@ function App() {
       setActivePreset(preset);
       seedMutation.mutate(preset);
   };
+
+  // The dashboard renders instantly off the fast 30-day seed; this polls
+  // whether the full-year background extension is still running, and
+  // refreshes all the data once it flips back to done.
+  const { data: seedStatus } = useQuery<SeedStatus>({
+      queryKey: ['seed-status'],
+      queryFn: fetchSeedStatus,
+      refetchInterval: (query) => (query.state.data?.in_progress ? 3000 : false),
+  });
+  const wasSeedingRef = useRef(false);
+  useEffect(() => {
+      if (wasSeedingRef.current && seedStatus && !seedStatus.in_progress) {
+          queryClient.invalidateQueries({ queryKey: ['stats'] });
+          queryClient.invalidateQueries({ queryKey: ['forecast'] });
+          queryClient.invalidateQueries({ queryKey: ['forecast-info'] });
+          queryClient.invalidateQueries({ queryKey: ['menu'] });
+          queryClient.invalidateQueries({ queryKey: ['cross'] });
+      }
+      wasSeedingRef.current = Boolean(seedStatus?.in_progress);
+  }, [seedStatus, queryClient]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -309,6 +339,9 @@ function App() {
                                 {PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
                             {seedMutation.isPending && <p className="text-xs text-[var(--color-brand-accent)] mt-2 animate-pulse">Generating realistic data...</p>}
+                            {!seedMutation.isPending && seedStatus?.in_progress && (
+                                <p className="text-xs text-emerald-400 mt-2 animate-pulse">Loading full year of history in background...</p>
+                            )}
                         </div>
                     </div>
                 </div>

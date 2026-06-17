@@ -2,10 +2,10 @@ from fastapi import APIRouter, UploadFile, File, Depends, BackgroundTasks, HTTPE
 from sqlalchemy.orm import Session
 import pandas as pd
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 from app import schemas, crud, models
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.ml.menu_analyzer import run_menu_engineering
 from app.ml.forecaster import run_demand_forecast
 from app.ml.demo_seeder import seed_demo_data
@@ -13,6 +13,18 @@ from app.ml.rag_engine import rag_engine
 from app.logger import logger
 
 router = APIRouter(prefix="/upload", tags=["upload"])
+
+# Seed the recent window instantly (snappy first paint), then extend to a
+# full year in the background - the longer history meaningfully tightens the
+# forecast's confidence interval, but generating it can take tens of seconds.
+QUICK_SEED_DAYS = 30
+FULL_SEED_DAYS = 365
+
+_seed_status: dict = {
+    "in_progress": False,
+    "preset": None,
+    "days_seeded": None,
+}
 
 
 def run_async_ml_training(db: Session):
@@ -210,24 +222,61 @@ async def upload_checks(
     )
 
 
+def _extend_seed_background(preset_name: str, quick_window_start: datetime):
+    """Seed the older history behind the fast initial window, then retrain
+    on the full year. Runs after the response was already sent, with its own
+    DB session since the request-scoped one is closed by then."""
+    db = SessionLocal()
+    try:
+        seed_demo_data(
+            db,
+            days=FULL_SEED_DAYS - QUICK_SEED_DAYS,
+            preset_name=preset_name,
+            end_date=quick_window_start,
+            clean_first=False,
+        )
+        run_async_ml_training(db)
+        rag_engine.refresh_from_db(db)
+        logger.info(f"Background full-year seed completed for preset '{preset_name}'.")
+    except Exception as e:
+        logger.error(f"Background seed extension failed: {e}")
+    finally:
+        _seed_status["in_progress"] = False
+        db.close()
+
+
+@router.get("/seed-status")
+def get_seed_status():
+    """Lets the frontend know whether the full-year background seed is still running."""
+    return _seed_status
+
+
 @router.post("/seed-demo")
 async def seed_demo(
+    background_tasks: BackgroundTasks,
     preset_name: str = "Casual Coffee Shop",
     db: Session = Depends(get_db)
 ):
-    """Seed 30 days of realistic sales data based on selected preset and trigger model training synchronously."""
+    """Seed the last 30 days instantly so the dashboard has something to show
+    right away, then extend to a full year of history in the background."""
     try:
-        stats = seed_demo_data(db, days=365, preset_name=preset_name)
-        
-        # Run training synchronously for snappy demo experience
+        now = datetime.now()
+        stats = seed_demo_data(db, days=QUICK_SEED_DAYS, preset_name=preset_name, end_date=now, clean_first=True)
+
+        # Run training synchronously - fast on this small window, keeps the demo snappy.
         run_async_ml_training(db)
-        
+
+        quick_window_start = now - timedelta(days=QUICK_SEED_DAYS)
+        _seed_status.update({"in_progress": True, "preset": preset_name, "days_seeded": QUICK_SEED_DAYS})
+        background_tasks.add_task(_extend_seed_background, preset_name, quick_window_start)
+
         return {
             "success": True,
-            "message": f"Demo database seeded successfully with {preset_name}. Models trained.",
+            "message": f"Demo database seeded with the last {QUICK_SEED_DAYS} days of {preset_name}. Loading the full year in the background...",
             "orders_seeded": stats["orders_seeded"],
             "items_seeded": stats["items_seeded"],
-            "days_seeded": stats["days_seeded"]
+            "days_seeded": stats["days_seeded"],
+            "background_extension_in_progress": True,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to seed demo data: {str(e)}")
