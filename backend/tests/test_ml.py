@@ -1,10 +1,14 @@
 import pytest
+import asyncio
+from types import SimpleNamespace
 from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy.orm import Session
 from app import models
 from app.ml.menu_analyzer import run_menu_engineering
 from app.ml.forecaster import run_demand_forecast
+from app.ml.rag_engine import rag_engine
+from app.ml.agent_manager import agent_manager
 
 def test_menu_engineering_fallback(db_session: Session):
     """Test Menu Engineering fallback to median splits when there are < 4 items."""
@@ -94,3 +98,55 @@ def test_forecast_execution(db_session: Session):
         assert f["predicted_revenue"] >= 0.0
         assert f["predicted_orders"] >= 0
         assert f["lower_bound_revenue"] <= f["predicted_revenue"] <= f["upper_bound_revenue"]
+
+def test_rag_engine_builds_context_from_db(db_session: Session):
+    """Test that RAG pulls relevant context from database analytics."""
+    order = models.Order(order_id_crm="TB-RAG-1", timestamp=datetime.now(), total_amount=Decimal("1000.0"))
+    db_session.add(order)
+    db_session.flush()
+
+    db_session.add_all([
+        models.OrderItem(order_id=order.id, item_name="Burger A", category="Burgers", price=Decimal("500.0"), quantity=2, total_price=Decimal("1000.0")),
+        models.MenuAnalysis(item_name="Burger A", category="Burgers", popularity_sales=20, avg_margin=Decimal("120.0"), total_revenue=Decimal("1000.0"), cluster_label="Stars"),
+        models.DemandForecast(date=datetime.now().date(), predicted_revenue=Decimal("1500.0"), predicted_orders=15, lower_bound_revenue=Decimal("1200.0"), upper_bound_revenue=Decimal("1800.0")),
+    ])
+    db_session.commit()
+
+    rag_engine.refresh_from_db(db_session)
+    context = rag_engine.build_context("Burger A forecast revenue")
+
+    assert "Burger A" in context
+    assert "database:menu_analysis" in context or "database:item_mix" in context
+    assert "database:forecast" in context
+
+def test_chat_agent_uses_rag_context(db_session: Session):
+    """Test that the chat prompt includes RAG context before Gemini generation."""
+    order = models.Order(order_id_crm="TB-RAG-2", timestamp=datetime.now(), total_amount=Decimal("1000.0"))
+    db_session.add(order)
+    db_session.flush()
+
+    db_session.add_all([
+        models.OrderItem(order_id=order.id, item_name="Coffee A", category="Coffee", price=Decimal("250.0"), quantity=4, total_price=Decimal("1000.0")),
+        models.MenuAnalysis(item_name="Coffee A", category="Coffee", popularity_sales=40, avg_margin=Decimal("180.0"), total_revenue=Decimal("1000.0"), cluster_label="Stars"),
+    ])
+    db_session.commit()
+
+    rag_engine.refresh_from_db(db_session)
+
+    class FakeModel:
+        def __init__(self):
+            self.last_prompt = ""
+
+        def generate_content(self, prompt):
+            self.last_prompt = prompt
+            return SimpleNamespace(text="ok")
+
+    original_model = agent_manager.model
+    agent_manager.model = FakeModel()
+    try:
+        result = asyncio.run(agent_manager.process_query("Расскажи про Coffee A"))
+        assert result == "ok"
+        assert "Coffee A" in agent_manager.model.last_prompt
+        assert "database:menu_analysis" in agent_manager.model.last_prompt
+    finally:
+        agent_manager.model = original_model

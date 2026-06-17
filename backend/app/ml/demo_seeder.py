@@ -5,184 +5,164 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy.orm import Session
 from app import models, crud
+from app.logger import logger
 
-MENU_ITEMS = {
-    "Burgers": [
-        {"name": "Бургер True", "price": 450.0},
-        {"name": "Бургер Чизбургер", "price": 380.0},
-        {"name": "Бургер Шеф-Краб", "price": 590.0},
-        {"name": "Бургер Веган", "price": 420.0}
-    ],
-    "Sides": [
-        {"name": "Картофель фри", "price": 180.0},
-        {"name": "Сырные палочки", "price": 240.0},
-        {"name": "Кольца луковые", "price": 160.0}
-    ],
-    "Drinks": [
-        {"name": "Кока-кола", "price": 120.0},
-        {"name": "Морс домашний", "price": 100.0},
-        {"name": "Пиво крафтовое", "price": 280.0}
-    ],
-    "Sauces": [
-        {"name": "Кетчуп", "price": 50.0},
-        {"name": "Соус сырный", "price": 50.0},
-        {"name": "Соус BBQ", "price": 50.0}
-    ]
+# Preset definitions mapped to restaurant types
+PRESETS_CONFIG = {
+    "Casual Coffee Shop": {
+        "items": [
+            ("Cappuccino", "Coffee", 4.50), ("Latte", "Coffee", 4.75), ("Espresso", "Coffee", 3.00),
+            ("Americano", "Coffee", 3.50), ("Mocha", "Coffee", 5.00), ("Iced Coffee", "Cold Drinks", 4.00),
+            ("Croissant", "Pastry", 3.75), ("Blueberry Muffin", "Pastry", 3.50), ("Avocado Toast", "Food", 8.50),
+            ("Breakfast Sandwich", "Food", 9.00), ("Oatmeal", "Food", 6.00), ("Green Tea", "Tea", 3.50)
+        ],
+        "daily_orders": (80, 200),
+        "items_per_order": (1, 3),
+        "peak_hours": [8, 9, 10, 11, 14, 15]
+    },
+    "Fine Dining Restaurant": {
+        "items": [
+            ("Truffle Risotto", "Mains", 38.00), ("Wagyu Steak", "Mains", 85.00), ("Lobster Bisque", "Starters", 24.00),
+            ("Oysters Rockefeller", "Starters", 28.00), ("Duck a l'Orange", "Mains", 45.00), ("Foie Gras", "Starters", 32.00),
+            ("Caviar (Half Dozen)", "Starters", 45.00), ("Chocolate Souffle", "Desserts", 16.00), ("Crème Brûlée", "Desserts", 18.00),
+            ("Vintage Pinot Noir", "Wine", 120.00), ("Chardonnay", "Wine", 95.00), ("Champagne", "Wine", 150.00)
+        ],
+        "daily_orders": (15, 40),
+        "items_per_order": (2, 6),
+        "peak_hours": [18, 19, 20, 21, 22]
+    },
+    "Fast Food Chain": {
+        "items": [
+            ("Classic Burger", "Burgers", 6.50), ("Cheeseburger", "Burgers", 7.50), ("Double Bacon Burger", "Burgers", 9.50),
+            ("Crispy Chicken Sandwich", "Sandwiches", 7.00), ("Spicy Chicken Nuggets", "Snacks", 5.00), ("French Fries (S)", "Sides", 2.50),
+            ("French Fries (L)", "Sides", 4.00), ("Onion Rings", "Sides", 3.50), ("Cola", "Drinks", 2.00),
+            ("Milkshake", "Drinks", 4.50), ("Soft Serve Ice Cream", "Desserts", 3.00), ("Apple Pie", "Desserts", 2.50)
+        ],
+        "daily_orders": (150, 400),
+        "items_per_order": (2, 5),
+        "peak_hours": [12, 13, 18, 19, 20]
+    },
+    "Vegan Cafe": {
+        "items": [
+            ("Quinoa Bowl", "Breakfast", 9.50), ("Acai Smoothie", "Bowls", 11.00), ("Beyond Burger", "Mains", 14.50),
+            ("Jackfruit Tacos", "Mains", 13.00), ("Kale Salad", "Salads", 12.00), ("Mushroom Risotto (V)", "Mains", 16.00),
+            ("Sweet Potato Fries", "Sides", 6.00), ("Matcha Latte", "Drinks", 5.50), ("Kombucha", "Drinks", 4.50),
+            ("Vegan Brownie", "Desserts", 4.50), ("Chia Pudding", "Desserts", 5.00), ("Detox Juice", "Drinks", 7.00)
+        ],
+        "daily_orders": (40, 100),
+        "items_per_order": (1, 4),
+        "peak_hours": [11, 12, 13, 14]
+    },
+    "Food Truck": {
+        "items": [
+            ("Street Taco (Beef)", "Tacos", 3.50), ("Street Taco (Chicken)", "Tacos", 3.00), ("Street Taco (Pork)", "Tacos", 3.50),
+            ("Loaded Nachos", "Snacks", 8.50), ("Burrito Supreme", "Burritos", 10.00), ("Quesadilla", "Burritos", 9.00),
+            ("Churros", "Desserts", 4.50), ("Horchata", "Drinks", 3.00), ("Jarritos", "Drinks", 3.00),
+            ("Mexican Coke", "Drinks", 3.50), ("Chips & Salsa", "Snacks", 4.00), ("Guacamole Side", "Sides", 2.50)
+        ],
+        "daily_orders": (60, 150),
+        "items_per_order": (1, 3),
+        "peak_hours": [11, 12, 13, 21, 22, 23]
+    }
 }
 
-def seed_demo_data(db: Session, days: int = 180) -> dict:
-    """Clear existing receipts, generate 180 days of realistic sales data, and save it.
-    Returns statistics about seeded data.
-    """
-    # 1. Clear existing database tables
+def clean_database(db: Session):
+    """Deletes all existing records to ensure a fresh demo state."""
     db.query(models.OrderItem).delete()
     db.query(models.Order).delete()
     db.query(models.MenuAnalysis).delete()
     db.query(models.DemandForecast).delete()
     db.commit()
 
-    # Setup time horizon
-    start_date = datetime.now() - timedelta(days=days)
+def seed_demo_data(db: Session, days: int = 180, preset_name: str = "Casual Coffee Shop") -> dict:
+    """
+    Generates realistic synthetic restaurant data based on a preset.
+    """
+    logger.info(f"Starting database clean & demo seeding for {days} days using preset: {preset_name}")
     
-    # Weekly seasonality factors (0: Monday, ..., 6: Sunday)
-    weekday_multipliers = [0.75, 0.8, 0.85, 0.95, 1.45, 1.6, 1.25]
+    clean_database(db)
     
-    orders_count = 0
-    items_count = 0
+    # Safely get preset or fallback to Casual Coffee Shop
+    config = PRESETS_CONFIG.get(preset_name, PRESETS_CONFIG["Casual Coffee Shop"])
+    MENU = config["items"]
     
-    random.seed(42)
-    np.random.seed(42)
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
     
-    # Iterate through each day
-    for d in range(days):
-        current_date = start_date + timedelta(days=d)
-        wday = current_date.weekday()
-        
-        # Calculate daily base order volume
-        base_orders = 55
-        multiplier = weekday_multipliers[wday]
-        
-        # Add monthly trend (slight peak in spring/summer)
-        month_factor = 1.0 + 0.1 * np.sin((current_date.month - 1) * np.pi / 6)
-        
-        # Add random noise
-        noise = np.random.normal(0, 5)
-        
-        daily_orders_qty = int(max(10, base_orders * multiplier * month_factor + noise))
-        
-        for o in range(daily_orders_qty):
-            # CRM Order ID
-            order_id_crm = f"TB-{current_date.strftime('%Y%m%d')}-{o+1:03d}"
-            
-            # Timestamp with random hour/minute (mostly lunch 12-14 and dinner 18-22)
-            hour_choices = [12, 13, 14, 18, 19, 20, 21, 22]
-            rand_hour = random.choice(hour_choices)
-            rand_minute = random.randint(0, 59)
-            order_time = current_date.replace(hour=rand_hour, minute=rand_minute, second=0)
-            
-            # Select items based on probabilities and affinities
-            order_items = []
-            
-            # 1. Burger selection (90% probability)
-            selected_burger = None
-            if random.random() < 0.90:
-                selected_burger = random.choice(MENU_ITEMS["Burgers"])
-                qty = 1 if random.random() < 0.85 else (2 if random.random() < 0.95 else 3)
-                order_items.append({
-                    "name": selected_burger["name"],
-                    "category": "Burgers",
-                    "price": selected_burger["price"],
-                    "qty": qty
-                })
-                
-            # 2. Side selection (70% probability, strong affinities)
-            if random.random() < 0.70:
-                # If they bought a classic burger, they likely get French Fries
-                if selected_burger and selected_burger["name"] in ["Бургер True", "Бургер Чизбургер"]:
-                    side = MENU_ITEMS["Sides"][0]  # Картофель фри
-                elif selected_burger and selected_burger["name"] == "Бургер Веган":
-                    side = MENU_ITEMS["Sides"][2]  # Кольца луковые
-                else:
-                    side = random.choice(MENU_ITEMS["Sides"])
-                    
-                qty = 1 if random.random() < 0.90 else 2
-                order_items.append({
-                    "name": side["name"],
-                    "category": "Sides",
-                    "price": side["price"],
-                    "qty": qty
-                })
-                
-            # 3. Drink selection (80% probability)
-            if random.random() < 0.80:
-                if selected_burger and selected_burger["name"] == "Бургер Шеф-Краб":
-                    drink = MENU_ITEMS["Drinks"][2]  # Пиво крафтовое (premium pair)
-                elif selected_burger and selected_burger["name"] == "Бургер Веган":
-                    drink = MENU_ITEMS["Drinks"][1]  # Морс домашний
-                else:
-                    drink = random.choice(MENU_ITEMS["Drinks"][:2])  # Cola or Mors
-                    
-                qty = 1 if random.random() < 0.80 else 2
-                order_items.append({
-                    "name": drink["name"],
-                    "category": "Drinks",
-                    "price": drink["price"],
-                    "qty": qty
-                })
-                
-            # 4. Sauce selection (65% probability, high correlation with fries)
-            if random.random() < 0.65:
-                # If they got French Fries, match with Cheese Sauce or Ketchup
-                has_fries = any(item["name"] == "Картофель фри" for item in order_items)
-                if has_fries:
-                    sauce = MENU_ITEMS["Sauces"][1] if random.random() < 0.70 else MENU_ITEMS["Sauces"][0] # Cheese or Ketchup
-                else:
-                    sauce = random.choice(MENU_ITEMS["Sauces"])
-                    
-                qty = 1 if random.random() < 0.90 else 2
-                order_items.append({
-                    "name": sauce["name"],
-                    "category": "Sauces",
-                    "price": sauce["price"],
-                    "qty": qty
-                })
+    orders_created = 0
+    items_created = 0
+    
+    # Weights for menu items to simulate popularity (Pareto principle)
+    weights = [random.uniform(0.1, 1.0) for _ in MENU]
+    weights.sort(reverse=True)
 
-            # Calculate total amount
-            total_amount = sum(item["price"] * item["qty"] for item in order_items)
+    current_date = start_date
+    while current_date <= end_date:
+        # Weekend multiplier
+        is_weekend = current_date.weekday() >= 5
+        multiplier = random.uniform(1.2, 1.8) if is_weekend else random.uniform(0.8, 1.2)
+        
+        min_ord, max_ord = config["daily_orders"]
+        daily_orders = int(random.randint(min_ord, max_ord) * multiplier)
+        
+        for _ in range(daily_orders):
+            # Peak hours logic
+            hour = random.choice(config["peak_hours"]) if random.random() > 0.3 else random.randint(8, 22)
+            minute = random.randint(0, 59)
+            order_time = current_date.replace(hour=hour, minute=minute)
             
-            # Create Order ORM
+            min_items, max_items = config["items_per_order"]
+            num_items = random.randint(min_items, max_items)
+            
+            selected_items = random.choices(MENU, weights=weights, k=num_items)
+            
+            order_total = 0.0
+            order_items_models = []
+            
+            # Use Order ORM mapping with a truly unique ID
             db_order = models.Order(
-                order_id_crm=order_id_crm,
+                order_id_crm=f"DEMO-{preset_name[:3].upper()}-{order_time.strftime('%Y%m%d')}-{orders_created}-{random.randint(100,999)}",
                 timestamp=order_time,
-                total_amount=Decimal(str(round(total_amount, 2))),
-                payment_method=random.choice(["Card", "Card", "Card", "Cash"])  # 75% cards
+                total_amount=Decimal('0.0'), # Update later
+                payment_method=random.choice(["Card", "Card", "Card", "Cash"])
             )
+
             db.add(db_order)
-            db.flush()
-            orders_count += 1
+            db.flush() # get ID
             
-            # Create OrderItems ORMs
-            for item in order_items:
+            for item in selected_items:
+                name, category, price = item
+                actual_price = price * random.choice([1.0, 1.0, 1.0, 0.9, 1.1])
+                qty = random.randint(1, 2)
+                
+                total_item_price = actual_price * qty
+                order_total += total_item_price
+                
                 db_item = models.OrderItem(
                     order_id=db_order.id,
-                    item_name=item["name"],
-                    category=item["category"],
-                    price=Decimal(str(item["price"])),
-                    quantity=item["qty"],
-                    total_price=Decimal(str(round(item["price"] * item["qty"], 2)))
+                    item_name=name,
+                    category=category,
+                    price=Decimal(str(round(actual_price, 2))),
+                    quantity=qty,
+                    total_price=Decimal(str(round(total_item_price, 2)))
                 )
                 db.add(db_item)
-                items_count += 1
+                items_created += 1
                 
-        # Commit in chunks of 10 days to save memory and show progress
-        if d % 10 == 0:
+            db_order.total_amount = Decimal(str(round(order_total, 2)))
+            orders_created += 1
+            
+        current_date += timedelta(days=1)
+        
+        if current_date.day % 5 == 0:
             db.commit()
             
     db.commit()
+    logger.info(f"Demo seeding complete. Orders: {orders_created}, Items: {items_created}")
     
     return {
-        "success": True,
-        "orders_seeded": orders_count,
-        "items_seeded": items_count,
+        "orders_seeded": orders_created,
+        "items_seeded": items_created,
         "days_seeded": days
     }
+

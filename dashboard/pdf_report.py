@@ -141,4 +141,4 @@ def generate_report_pdf(
     pdf.body_text(f"Email: {CONTACT_EMAIL}")
     pdf.body_text("Первый мини-разбор чеков — бесплатно.")
 
-    return pdf.output()
+    return bytes(pdf.output())

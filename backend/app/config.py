@@ -1,13 +1,13 @@
 import os
 
 class Settings:
-    PROJECT_NAME: str = "Restaurant Analytics SaaS"
+    PROJECT_NAME: str = "GastroSense Analytics"
     API_V1_STR: str = "/api/v1"
     
-    # Database configuration
+    # Use SQLite by default for easy portfolio running without a DB server
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", 
-        "mysql+pymysql://analytics_user:analytics_password@localhost/restaurant_analytics"
+        "sqlite:///./analytics.db"
     )
 
 settings = Settings()

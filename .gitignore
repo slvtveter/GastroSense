@@ -31,3 +31,5 @@ ehthumbs.db
 backend/app/ml/models/
 *.log
 mysql_data/
+backend/analytics.db
+backend/chroma_db/

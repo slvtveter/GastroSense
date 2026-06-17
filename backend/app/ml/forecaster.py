@@ -103,12 +103,24 @@ def run_demand_forecast(db: Session, forecast_horizon: int = 7) -> List[Dict[str
     
     # Choose ML Model (LightGBM with Random Forest fallback)
     logger.info(f"Training Time Series models on {len(X_train)} historical days. Using LightGBM: {HAS_LIGHTGBM}")
+    # Portfolio demos typically have 20-90 days of history, leaving very few rows
+    # after lag/rolling feature engineering. LightGBM's default min_child_samples=20
+    # is larger than that, so the tree never splits and predicts a near-constant
+    # value for every forecast day. Scale leaf/split requirements to the actual
+    # training set size instead of relying on defaults tuned for big data.
+    min_leaf_samples = max(1, min(20, len(X_train) // 4))
     if HAS_LIGHTGBM:
-        model_rev = lgb.LGBMRegressor(n_estimators=100, learning_rate=0.05, random_state=42, verbose=-1)
-        model_ord = lgb.LGBMRegressor(n_estimators=100, learning_rate=0.05, random_state=42, verbose=-1)
+        model_rev = lgb.LGBMRegressor(
+            n_estimators=100, learning_rate=0.05, random_state=42, verbose=-1,
+            min_child_samples=min_leaf_samples, min_split_gain=0.0, num_leaves=7
+        )
+        model_ord = lgb.LGBMRegressor(
+            n_estimators=100, learning_rate=0.05, random_state=42, verbose=-1,
+            min_child_samples=min_leaf_samples, min_split_gain=0.0, num_leaves=7
+        )
     else:
-        model_rev = RandomForestRegressor(n_estimators=100, random_state=42)
-        model_ord = RandomForestRegressor(n_estimators=100, random_state=42)
+        model_rev = RandomForestRegressor(n_estimators=100, random_state=42, min_samples_leaf=min_leaf_samples)
+        model_ord = RandomForestRegressor(n_estimators=100, random_state=42, min_samples_leaf=min_leaf_samples)
         
     model_rev.fit(X_train, y_revenue)
     model_ord.fit(X_train, y_orders)

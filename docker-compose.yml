@@ -1,54 +1,26 @@
 version: '3.8'
 
 services:
-  db:
-    image: mysql:8.0
-    container_name: restaurant_analytics_db
-    restart: always
-    environment:
-      MYSQL_DATABASE: restaurant_analytics
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_USER: analytics_user
-      MYSQL_PASSWORD: analytics_password
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   backend:
-    build:
+    build: 
       context: ./backend
-    container_name: restaurant_analytics_backend
-    restart: always
-    environment:
-      - DATABASE_URL=mysql+pymysql://analytics_user:analytics_password@db/restaurant_analytics
-      - ENV=dev
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app
-    depends_on:
-      db:
-        condition: service_healthy
-
-  dashboard:
-    build:
-      context: ./dashboard
-    container_name: restaurant_analytics_dashboard
-    restart: always
-    ports:
-      - "8501:8501"
-    volumes:
-      - ./dashboard:/app
     environment:
-      - BACKEND_API_URL=http://backend:8000/api/v1
+      - DATABASE_URL=sqlite:///./analytics.db
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/chroma_db:/app/chroma_db
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
     depends_on:
       - backend
-
-volumes:
-  mysql_data:
+    restart: unless-stopped

@@ -9,6 +9,7 @@ from app.database import get_db
 from app.ml.menu_analyzer import run_menu_engineering
 from app.ml.forecaster import run_demand_forecast
 from app.ml.demo_seeder import seed_demo_data
+from app.ml.rag_engine import rag_engine
 from app.logger import logger
 
 router = APIRouter(prefix="/upload", tags=["upload"])
@@ -29,6 +30,9 @@ def run_async_ml_training(db: Session):
         if forecasts:
             crud.update_demand_forecast(db, forecasts)
             logger.info(f"Successfully updated Demand Forecasts for next {len(forecasts)} days.")
+
+        rag_engine.refresh_from_db(db)
+        logger.info("RAG knowledge base refreshed after ML training.")
             
         logger.info("Background ML model training completed successfully.")
     except Exception as e:
@@ -208,23 +212,22 @@ async def upload_checks(
 
 @router.post("/seed-demo")
 async def seed_demo(
-    background_tasks: BackgroundTasks,
+    preset_name: str = "Casual Coffee Shop",
     db: Session = Depends(get_db)
 ):
-    """Seed 180 days of realistic sales data for True Burgers and trigger model training."""
+    """Seed 30 days of realistic sales data based on selected preset and trigger model training synchronously."""
     try:
-        stats = seed_demo_data(db, days=180)
+        stats = seed_demo_data(db, days=30, preset_name=preset_name)
         
-        # Trigger background training
-        background_tasks.add_task(run_async_ml_training, db)
+        # Run training synchronously for snappy demo experience
+        run_async_ml_training(db)
         
         return {
             "success": True,
-            "message": "Demo database seeded successfully. Model training scheduled in background.",
+            "message": f"Demo database seeded successfully with {preset_name}. Models trained.",
             "orders_seeded": stats["orders_seeded"],
             "items_seeded": stats["items_seeded"],
             "days_seeded": stats["days_seeded"]
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to seed demo data: {str(e)}")
-
