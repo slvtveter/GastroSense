@@ -225,12 +225,24 @@ async def upload_checks(
     )
 
 
-def _extend_seed_background(preset_name: str, quick_window_start: datetime):
-    """Seed the older history behind the fast initial window, then retrain
-    on the full year. Runs after the response was already sent, with its own
-    DB session since the request-scoped one is closed by then."""
+def _train_and_extend_background(preset_name: str, quick_window_start: datetime):
+    """Runs after the response is already sent (own DB session). Order matters
+    for a snappy UI on a slow free-tier CPU:
+      1. Train on the quick 30-day window first, so Menu Engineering and the
+         forecast appear within a few seconds.
+      2. Seed the older history behind that window.
+      3. Retrain on the full history and refresh the RAG corpus.
+    Training is deliberately OFF the request path: on a 0.15 CPU instance it can
+    take tens of seconds, and doing it inside /seed-demo blocked the worker long
+    enough that concurrent /stats and /history calls timed out (502), which the
+    dashboard then rendered as $NaN / $undefined."""
     db = SessionLocal()
     try:
+        # 1. Quick-window training so the dashboard fills in fast.
+        run_async_ml_training(db)
+        rag_engine.refresh_from_db(db)
+
+        # 2. Extend the older history behind the quick window.
         seed_demo_data(
             db,
             days=FULL_SEED_DAYS - QUICK_SEED_DAYS,
@@ -238,11 +250,13 @@ def _extend_seed_background(preset_name: str, quick_window_start: datetime):
             end_date=quick_window_start,
             clean_first=False,
         )
+
+        # 3. Retrain on the full history and refresh RAG with the richer data.
         run_async_ml_training(db)
         rag_engine.refresh_from_db(db)
-        logger.info(f"Background full-year seed completed for preset '{preset_name}'.")
+        logger.info(f"Background seed + training completed for preset '{preset_name}'.")
     except Exception as e:
-        logger.error(f"Background seed extension failed: {e}")
+        logger.error(f"Background seed/training failed: {e}")
     finally:
         _seed_status["in_progress"] = False
         db.close()
@@ -264,18 +278,19 @@ async def seed_demo(
     right away, then extend to a full year of history in the background."""
     try:
         now = datetime.now()
+        # Quick 30-day seed only - just the DB writes, no model training. This
+        # returns in a couple of seconds so the dashboard's /stats and /history
+        # calls get fresh data immediately; training happens off the request
+        # path in the background task below.
         stats = seed_demo_data(db, days=QUICK_SEED_DAYS, preset_name=preset_name, end_date=now, clean_first=True)
-
-        # Run training synchronously - fast on this small window, keeps the demo snappy.
-        run_async_ml_training(db)
 
         quick_window_start = now - timedelta(days=QUICK_SEED_DAYS)
         _seed_status.update({"in_progress": True, "preset": preset_name, "days_seeded": QUICK_SEED_DAYS})
-        background_tasks.add_task(_extend_seed_background, preset_name, quick_window_start)
+        background_tasks.add_task(_train_and_extend_background, preset_name, quick_window_start)
 
         return {
             "success": True,
-            "message": f"Demo database seeded with the last {QUICK_SEED_DAYS} days of {preset_name}. Loading the full year in the background...",
+            "message": f"Demo database seeded with the last {QUICK_SEED_DAYS} days of {preset_name}. Training models and loading more history in the background...",
             "orders_seeded": stats["orders_seeded"],
             "items_seeded": stats["items_seeded"],
             "days_seeded": stats["days_seeded"],

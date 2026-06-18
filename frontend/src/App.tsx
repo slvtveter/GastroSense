@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import ChatInterface from './components/ChatInterface';
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ScatterChart, Scatter, ZAxis, ReferenceLine, ReferenceArea, Brush } from 'recharts';
-import { Upload, TrendingUp, Pizza, Network, FileDown, Check, HelpCircle } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Upload, TrendingUp, Pizza, Network, FileDown, Check, HelpCircle, BarChart3 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import axios from 'axios';
 
 const PRESETS = [
@@ -191,8 +191,19 @@ function App() {
   const [selectedItemForCombo, setSelectedItemForCombo] = useState<string | null>(null);
   const [historyDays, setHistoryDays] = useState(30);
 
-  // Queries
-  const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['stats'], queryFn: fetchStats });
+  // Queries. keepPreviousData stops the KPI cards from blanking to undefined
+  // while a preset switch reseeds and refetches - they keep showing the last
+  // good numbers until the new ones arrive.
+  const { data: stats, isLoading: statsLoading } = useQuery({
+      queryKey: ['stats'],
+      queryFn: fetchStats,
+      placeholderData: keepPreviousData,
+  });
+  // Only treat the KPIs as ready when every field is a real, finite number, so
+  // a half-empty or failed response can never render "$NaN" / "$undefined".
+  const kpiReady = !!stats
+      && [stats.total_revenue, stats.total_orders, stats.avg_check, stats.avg_items_per_check]
+          .every((v) => v != null && Number.isFinite(Number(v)));
   const { data: chartData = [], isLoading: chartLoading } = useQuery<ForecastPoint[]>({
       queryKey: ['forecast', historyDays],
       queryFn: () => fetchForecast(historyDays),
@@ -458,25 +469,25 @@ function App() {
                     <div className="bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] rounded-[16px] p-5 shadow-sm">
                         <div className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider">Total Revenue</div>
                         <div className="text-2xl font-extrabold text-white mt-1">
-                            {statsLoading ? '...' : `$${(stats?.total_revenue / 1000).toFixed(1)}k`}
+                            {kpiReady ? `$${(Number(stats.total_revenue) / 1000).toFixed(1)}k` : '...'}
                         </div>
                     </div>
                     <div className="bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] rounded-[16px] p-5 shadow-sm">
                         <div className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider">Total Orders</div>
                         <div className="text-2xl font-extrabold text-white mt-1">
-                            {statsLoading ? '...' : stats?.total_orders.toLocaleString()}
+                            {kpiReady ? Number(stats.total_orders).toLocaleString() : '...'}
                         </div>
                     </div>
                     <div className="bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] rounded-[16px] p-5 shadow-sm">
                         <div className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider">Avg Check</div>
                         <div className="text-2xl font-extrabold text-white mt-1">
-                            {statsLoading ? '...' : `$${stats?.avg_check}`}
+                            {kpiReady ? `$${Number(stats.avg_check).toFixed(2)}` : '...'}
                         </div>
                     </div>
                     <div className="bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] rounded-[16px] p-5 shadow-sm">
                         <div className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider">Avg Items/Order</div>
                         <div className="text-2xl font-extrabold text-white mt-1">
-                            {statsLoading ? '...' : stats?.avg_items_per_check}
+                            {kpiReady ? Number(stats.avg_items_per_check).toFixed(1) : '...'}
                         </div>
                     </div>
                 </div>
@@ -525,8 +536,11 @@ function App() {
                                 </div>
                             </div>
                             <div className="flex-1 w-full flex flex-col gap-5 min-h-0">
-                                {chartLoading ? (
-                                    <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)]">Loading metrics...</div>
+                                {chartLoading || chartData.length === 0 ? (
+                                    <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)] gap-2">
+                                        <BarChart3 size={18} className="animate-pulse" />
+                                        {seedStatus?.in_progress ? 'Preparing data & training models…' : 'Loading metrics…'}
+                                    </div>
                                 ) : (
                                     <>
                                         <div className="flex-1 min-h-[280px]">
@@ -601,8 +615,10 @@ function App() {
                                 {menuLoading ? (
                                     <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)]">Analyzing menu clusters...</div>
                                 ) : menuData.length === 0 ? (
-                                    <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)] text-sm text-center">
-                                        No menu analysis data yet. Seed data or upload a CSV to generate the matrix.
+                                    <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)] text-sm text-center gap-2">
+                                        {seedStatus?.in_progress ? (
+                                            <><Pizza size={18} className="animate-pulse" /> Training the menu model…</>
+                                        ) : 'No menu analysis data yet. Seed data or upload a CSV to generate the matrix.'}
                                     </div>
                                 ) : (
                                     <>
@@ -678,7 +694,11 @@ function App() {
                             {crossLoading ? (
                                 <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)]">Computing market basket analysis...</div>
                             ) : crossData.index.length === 0 ? (
-                                <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-brand-muted)]">No items available for cross-sales analysis. Seed more data or check backend.</div>
+                                <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-brand-muted)] gap-2">
+                                    {seedStatus?.in_progress ? (
+                                        <><Network size={18} className="animate-pulse" /> Computing combos from order history…</>
+                                    ) : 'No items available for cross-sales analysis. Seed more data or check backend.'}
+                                </div>
                             ) : (
                                 <div className="flex-1 flex flex-col gap-4 min-h-0">
                                     <div className="flex flex-wrap gap-2 flex-shrink-0">

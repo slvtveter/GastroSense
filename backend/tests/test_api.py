@@ -70,7 +70,9 @@ def test_seed_demo_and_analytics(client: TestClient, db_session: Session):
     stats_response = client.get("/api/v1/analytics/stats")
     assert stats_response.status_code == 200
     stats_data = stats_response.json()
-    assert stats_data["total_orders"] == seed_data["orders_seeded"]
+    # seed-demo returns just the quick window's count; the background task then
+    # extends the history with more orders, so the live total is >= that.
+    assert stats_data["total_orders"] >= seed_data["orders_seeded"]
     assert stats_data["total_revenue"] > 0
     assert stats_data["avg_check"] > 0
     

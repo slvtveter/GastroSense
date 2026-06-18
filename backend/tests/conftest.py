@@ -38,15 +38,23 @@ def fixture_db_session():
         Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture(name="client", scope="function")
-def fixture_client(db_session):
+def fixture_client(db_session, monkeypatch):
     """Override get_db dependency in the FastAPI application and yield a test client."""
     def override_get_db():
         try:
             yield db_session
         finally:
             pass
-            
+
     app.dependency_overrides[get_db] = override_get_db
+
+    # The seed-demo background task trains models off the request path using its
+    # own SessionLocal(). Point that at the same in-memory test session so the
+    # background work lands in the test DB (the TestClient runs background tasks
+    # synchronously during the request), letting us assert on its results.
+    import app.routers.upload as upload_module
+    monkeypatch.setattr(upload_module, "SessionLocal", lambda: db_session)
+
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
