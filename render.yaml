@@ -14,6 +14,16 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false
+      # Render's free tier is 512 MB RAM / 0.15 CPU. A full year of the heavier
+      # presets (e.g. Fast Food Chain) won't fit, so cap the seeded history here.
+      # Locally (no env var) it still defaults to a full 365 days.
+      - key: FULL_SEED_DAYS
+        value: "180"
+      # Make glibc return freed memory to the OS more aggressively instead of
+      # hoarding it in per-thread arenas - keeps RSS lower for pandas/sklearn
+      # workloads on a tiny instance.
+      - key: MALLOC_ARENA_MAX
+        value: "2"
 
   - type: web
     name: gastrosense-frontend

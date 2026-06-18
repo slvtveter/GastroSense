@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from sqlalchemy import func, case
 from sqlalchemy.orm import Session
 from app.models import OrderItem
 from app.logger import logger, log_execution_time
@@ -32,34 +33,44 @@ def get_food_cost_margin_factor(item_name: str, category: str) -> float:
 
 @log_execution_time("Menu Engineering K-Means")
 def run_menu_engineering(db: Session) -> List[Dict[str, Any]]:
-    """Query order items, aggregate metrics, run K-Means, and assign quadrants."""
-    # 1. Fetch order items from database
-    items = db.query(OrderItem).all()
-    if not items:
+    """Aggregate per-item metrics in SQL, run K-Means, and assign quadrants."""
+    # 1. Aggregate directly in the database with GROUP BY, instead of loading
+    # every order_item row (hundreds of thousands for a year of data) into
+    # Python and grouping with pandas. The DB returns ~one row per menu item,
+    # which is the whole point of the aggregation - materialising all the raw
+    # rows first was a major memory spike that could OOM a 512 MB instance.
+    category_label = case((OrderItem.category.is_(None), "Other"),
+                          (OrderItem.category == "", "Other"),
+                          else_=OrderItem.category)
+    rows = (
+        db.query(
+            OrderItem.item_name.label("item_name"),
+            category_label.label("category"),
+            func.sum(OrderItem.quantity).label("popularity_sales"),
+            func.avg(OrderItem.price).label("avg_price"),
+            func.sum(OrderItem.total_price).label("total_revenue"),
+        )
+        .group_by(OrderItem.item_name, category_label)
+        .all()
+    )
+    if not rows:
         logger.warning("No items found in database for Menu Engineering.")
         return []
-    
-    logger.info(f"Loaded {len(items)} sales records from database. Running aggregation...")
 
-    
-    # Convert to DataFrame
-    data = []
-    for item in items:
-        data.append({
-            "item_name": item.item_name,
-            "category": item.category or "Other",
-            "price": float(item.price),
-            "quantity": item.quantity,
-            "total_price": float(item.total_price)
-        })
-    df = pd.DataFrame(data)
-    
-    # 2. Aggregate per item
-    agg_df = df.groupby(["item_name", "category"]).agg(
-        popularity_sales=("quantity", "sum"),
-        avg_price=("price", "mean"),
-        total_revenue=("total_price", "sum")
-    ).reset_index()
+    logger.info(f"Aggregated {len(rows)} unique menu items in SQL. Running clustering...")
+
+    agg_df = pd.DataFrame(
+        [
+            {
+                "item_name": r.item_name,
+                "category": r.category or "Other",
+                "popularity_sales": float(r.popularity_sales or 0.0),
+                "avg_price": float(r.avg_price or 0.0),
+                "total_revenue": float(r.total_revenue or 0.0),
+            }
+            for r in rows
+        ]
+    )
     
     # Calculate estimated margin per item
     agg_df["avg_margin_factor"] = agg_df.apply(

@@ -1,4 +1,5 @@
 import pandas as pd
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models
@@ -7,6 +8,14 @@ from app import models
 # leaderboards (API and RAG alike) - with too few checks, lift/confidence is
 # just sampling noise. Mirrors MIN_COMBO_SUPPORT in frontend/src/App.tsx.
 MIN_COMBO_SUPPORT = 5
+
+# The market basket self-join is the single heaviest per-request computation:
+# it loads every order_item and builds a co-occurrence matrix in pandas. The
+# dashboard refetches /associations on every page load, so without a cache the
+# whole thing recomputes (and re-spikes memory) each time. Cache the result
+# keyed by the order_item row count - cheap to check, and it changes whenever
+# the data changes (reseed/upload), which is exactly when we must recompute.
+_cache: dict = {"row_count": None, "result": None}
 
 
 def compute_associations(db: Session, top_n_items: int = 15) -> dict:
@@ -21,9 +30,18 @@ def compute_associations(db: Session, top_n_items: int = 15) -> dict:
       together less than chance would predict (not a real combo).
     - support: raw count of orders containing both A and B.
     """
+    row_count = db.query(func.count(models.OrderItem.id)).scalar() or 0
+    if _cache["result"] is not None and _cache["row_count"] == row_count:
+        return _cache["result"]
+
+    def _finalize(result: dict) -> dict:
+        _cache["row_count"] = row_count
+        _cache["result"] = result
+        return result
+
     items = db.query(models.OrderItem.order_id, models.OrderItem.item_name).all()
     if not items:
-        return {"index": [], "columns": [], "data": [], "lift": [], "support": [], "total_orders": 0}
+        return _finalize({"index": [], "columns": [], "data": [], "lift": [], "support": [], "total_orders": 0})
 
     df = pd.DataFrame(items, columns=["order_id", "item_name"])
     total_orders = df["order_id"].nunique()
@@ -31,7 +49,7 @@ def compute_associations(db: Session, top_n_items: int = 15) -> dict:
     item_counts = df["item_name"].value_counts()
     top_items = item_counts.head(top_n_items).index.tolist()
     if len(top_items) < 2:
-        return {"index": [], "columns": [], "data": [], "lift": [], "support": [], "total_orders": total_orders}
+        return _finalize({"index": [], "columns": [], "data": [], "lift": [], "support": [], "total_orders": total_orders})
 
     df_unique = df.drop_duplicates()
     df_top = df_unique[df_unique["item_name"].isin(top_items)]
@@ -54,11 +72,11 @@ def compute_associations(db: Session, top_n_items: int = 15) -> dict:
             lift.loc[item_i, item_j] = (support.loc[item_i, item_j] * total_orders / denom) if denom > 0 else 0.0
     lift = lift.round(2)
 
-    return {
+    return _finalize({
         "index": top_items,
         "columns": top_items,
         "data": confidence.values.tolist(),
         "lift": lift.values.tolist(),
         "support": support.values.tolist(),
         "total_orders": total_orders,
-    }
+    })

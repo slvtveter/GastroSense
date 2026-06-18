@@ -169,6 +169,27 @@ def seed_demo_data(
     order_rows: list[dict] = []
     item_rows: list[dict] = []
 
+    # Flush to the DB every FLUSH_EVERY_DAYS instead of buffering a whole year
+    # of rows in Python lists - on a 512 MB host, holding ~450k item dicts in
+    # memory at once is enough to OOM the process by itself. Periodic flushing
+    # keeps peak memory bounded to roughly one chunk regardless of total days.
+    FLUSH_EVERY_DAYS = 30
+    days_since_flush = 0
+    total_orders = 0
+    total_items = 0
+
+    def flush() -> None:
+        nonlocal days_since_flush, total_orders, total_items
+        if order_rows:
+            db.execute(insert(models.Order), order_rows)
+            db.execute(insert(models.OrderItem), item_rows)
+            db.commit()
+            total_orders += len(order_rows)
+            total_items += len(item_rows)
+            order_rows.clear()
+            item_rows.clear()
+        days_since_flush = 0
+
     current_date = start_date
     while current_date <= end_date:
         # Weekend multiplier
@@ -233,19 +254,18 @@ def seed_demo_data(
             })
 
         current_date += timedelta(days=1)
+        days_since_flush += 1
+        if days_since_flush >= FLUSH_EVERY_DAYS:
+            flush()
 
-    if order_rows:
-        db.execute(insert(models.Order), order_rows)
-        db.execute(insert(models.OrderItem), item_rows)
-    db.commit()
+    # Flush whatever is left in the final partial chunk.
+    flush()
 
-    orders_created = len(order_rows)
-    items_created = len(item_rows)
-    logger.info(f"Demo seeding complete. Orders: {orders_created}, Items: {items_created}")
+    logger.info(f"Demo seeding complete. Orders: {total_orders}, Items: {total_items}")
 
     return {
-        "orders_seeded": orders_created,
-        "items_seeded": items_created,
+        "orders_seeded": total_orders,
+        "items_seeded": total_items,
         "days_seeded": days
     }
 

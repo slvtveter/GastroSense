@@ -2,6 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, BackgroundTasks, HTTPE
 from sqlalchemy.orm import Session
 import pandas as pd
 import io
+import os
 from datetime import datetime, timedelta
 from typing import List
 from app import schemas, crud, models
@@ -15,10 +16,12 @@ from app.logger import logger
 router = APIRouter(prefix="/upload", tags=["upload"])
 
 # Seed the recent window instantly (snappy first paint), then extend to a
-# full year in the background - the longer history meaningfully tightens the
-# forecast's confidence interval, but generating it can take tens of seconds.
-QUICK_SEED_DAYS = 30
-FULL_SEED_DAYS = 365
+# longer history in the background - more history meaningfully improves the
+# forecast, but generating and querying it costs memory. On a memory-limited
+# host (e.g. Render's 512 MB free tier) FULL_SEED_DAYS is set lower via env so
+# the dataset + ML training fit in RAM; locally it defaults to a full year.
+QUICK_SEED_DAYS = int(os.getenv("QUICK_SEED_DAYS", "30"))
+FULL_SEED_DAYS = int(os.getenv("FULL_SEED_DAYS", "365"))
 
 _seed_status: dict = {
     "in_progress": False,
