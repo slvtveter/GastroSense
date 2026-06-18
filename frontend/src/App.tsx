@@ -172,6 +172,19 @@ const MENU_QUADRANTS = [
     { label: 'Dogs', emoji: '🗑️', color: '#f87171', desc: 'Low popularity & margin — consider removing.' },
 ];
 
+// Hover help icon, matching the one on the Sales & Forecast chart. `position`
+// places the popup relative to the icon (default: below-left); pass a different
+// anchor (e.g. open upward for items near the bottom of the page).
+const HelpTooltip = ({ title, children, position = 'left-0 top-6' }: { title: string; children: React.ReactNode; position?: string }) => (
+    <span className="group relative inline-flex">
+        <HelpCircle size={14} className="text-[var(--color-brand-muted)] cursor-help hover:text-white transition-colors" />
+        <span className={`invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute ${position} z-30 w-72 bg-[#0b0f19] border border-[var(--color-brand-border)] rounded-xl p-3 shadow-2xl text-left font-normal normal-case tracking-normal block`}>
+            <span className="text-xs font-bold text-white mb-1 block">{title}</span>
+            <span className="text-[11px] text-[var(--color-brand-muted)] leading-relaxed block">{children}</span>
+        </span>
+    </span>
+);
+
 function App() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('forecast');
@@ -361,7 +374,12 @@ function App() {
             
             <div className="p-4 space-y-6">
                 <div>
-                    <h3 className="text-xs font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-3">Data Source</h3>
+                    <h3 className="text-xs font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        Data Source
+                        <HelpTooltip title="Uploading your own data" position="left-0 top-6">
+                            Upload a CSV or Excel export of receipts from your POS (iiko, R-Keeper, etc.). It needs one row per item sold, with columns for check ID, date/time, item name, price, and quantity (category is optional). Column names are matched automatically in English or Russian. No data of your own? Pick a simulation preset below.
+                        </HelpTooltip>
+                    </h3>
                     <div className="space-y-2">
                         <label className="w-full flex items-center justify-between bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] px-4 py-2.5 rounded-xl hover:border-[var(--color-brand-accent)] transition-colors text-sm font-semibold cursor-pointer relative overflow-hidden">
                             <span className="flex items-center gap-2">
@@ -407,10 +425,13 @@ function App() {
             </div>
         </div>
 
-        <div className="p-4 border-t border-[var(--color-brand-border)]">
-            <button onClick={handleDownloadPDF} className="w-full flex items-center justify-center gap-2 bg-[#1e293b] border border-[var(--color-brand-border)] px-4 py-3 rounded-xl hover:bg-[var(--color-brand-card)] transition-colors text-sm font-bold text-[var(--color-brand-muted)]">
+        <div className="p-4 border-t border-[var(--color-brand-border)] flex items-center gap-2">
+            <button onClick={handleDownloadPDF} className="flex-1 flex items-center justify-center gap-2 bg-[#1e293b] border border-[var(--color-brand-border)] px-4 py-3 rounded-xl hover:bg-[var(--color-brand-card)] transition-colors text-sm font-bold text-[var(--color-brand-muted)]">
                 <FileDown size={16} /> Generate PDF Report
             </button>
+            <HelpTooltip title="What's in the report" position="bottom-7 right-0">
+                A one-page PDF summary of the currently selected venue: headline KPIs (revenue, orders, average check), the 7-day demand forecast, the menu engineering breakdown (Stars / Workhorses / Puzzles / Dogs), and the top cross-sell combos. Handy for sharing the snapshot without opening the dashboard.
+            </HelpTooltip>
         </div>
       </aside>
 
@@ -557,7 +578,12 @@ function App() {
                     {activeTab === 'menu' && (
                         <>
                             <div className="mb-4">
-                                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Menu Engineering Matrix (BCG)</h3>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                    Menu Engineering Matrix (BCG)
+                                    <HelpTooltip title="How we calculated this: K-Means clustering">
+                                        Each item is plotted by popularity (units sold) and average margin. We standardize both metrics so neither dominates, then run K-Means (K=4) to group items, and label the clusters against the median into Stars, Workhorses, Puzzles, and Dogs. Margins are estimated from category-based food-cost benchmarks.
+                                    </HelpTooltip>
+                                </h3>
                                 <p className="text-xs text-[var(--color-brand-muted)] mt-1">Popularity (units sold) vs. average margin — each dot is one menu item.</p>
                             </div>
                             <div className="flex-1 w-full flex flex-col gap-5 min-h-0">
@@ -628,7 +654,12 @@ function App() {
                     {activeTab === 'cross' && (
                         <>
                             <div className="mb-4">
-                                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Cross-Sales & Combos</h3>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                    Cross-Sales & Combos
+                                    <HelpTooltip title="How we calculated this: market basket lift">
+                                        For every pair of items we compute lift = P(A and B) / (P(A) × P(B)) — how often they're actually bought together versus what pure chance would predict. Lift above 1 (green) is real synergy worth bundling; below 1 (red) means they're ordered together less than chance, so don't. Pairs with too few orders are filtered out as noise.
+                                    </HelpTooltip>
+                                </h3>
                                 <p className="text-xs text-[var(--color-brand-muted)] mt-1">
                                     Ranked by lift: how many times more often items are bought together than random chance predicts. Green = real synergy, red = worse than chance - don't bundle.
                                 </p>
