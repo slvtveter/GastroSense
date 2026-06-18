@@ -137,7 +137,7 @@ def test_chat_agent_uses_rag_context(db_session: Session):
         def __init__(self):
             self.last_prompt = ""
 
-        def generate_content(self, prompt):
+        def generate_content(self, prompt, **kwargs):
             self.last_prompt = prompt
             return SimpleNamespace(text="ok")
 

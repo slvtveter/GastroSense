@@ -80,10 +80,15 @@ class AgentManager:
         # сразу. С 7 моделями в списке часть имен/квот может оказаться
         # недействительной или измениться - цепочка должна быть отказоустойчивой
         # к этому, а не только к ошибкам квоты.
+        # Per-call timeout so one slow/throttled model can't stall the whole
+        # request. Without it, when the high-quality models are rate-limited,
+        # each one can take ~10s to fail and the chain stacks up to a 60s+ wait
+        # before reaching a model that still has quota. Capping each attempt
+        # keeps the worst case bounded and failover snappy.
         last_error: Exception | None = None
         for index, model in enumerate(self.models):
             try:
-                response = model.generate_content(prompt)
+                response = model.generate_content(prompt, request_options={"timeout": 12})
                 return response.text or "Couldn't generate a response."
             except Exception as e:
                 last_error = e
