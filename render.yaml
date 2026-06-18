@@ -1,30 +1,10 @@
-# Three independent deploy targets in one Blueprint:
-# 1. gastrosense-portfolio - standalone Streamlit demo, no backend needed.
-# 2. gastrosense-backend   - FastAPI + SQLite + RAG/Gemini chat.
-# 3. gastrosense-frontend  - React dashboard, talks to gastrosense-backend's
+# Two services in one Blueprint:
+# 1. gastrosense-backend  - FastAPI + SQLite + RAG/Gemini chat.
+# 2. gastrosense-frontend - React dashboard, talks to gastrosense-backend's
 #    public URL (Render's free plan can't accept private-network traffic,
 #    so this has to be the public https:// address, not an internal host).
 # In Render: New -> Blueprint -> connect this repository.
 services:
-  - type: web
-    name: gastrosense-portfolio
-    runtime: python
-    rootDir: dashboard
-    buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --browser.gatherUsageStats=false
-    plan: free
-    envVars:
-      - key: CONTACT_NAME
-        sync: false
-      - key: CONTACT_TELEGRAM
-        sync: false
-      - key: CONTACT_EMAIL
-        sync: false
-      - key: CONTACT_PHONE
-        sync: false
-      - key: DEMO_URL
-        sync: false
-
   - type: web
     name: gastrosense-backend
     runtime: docker
