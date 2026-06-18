@@ -14,6 +14,12 @@ A restaurant analytics dashboard I built to practice end-to-end ML engineering: 
 
 It takes raw order data (CSV exports from POS systems like iiko or R-Keeper, or generated demo data) and turns it into three things a restaurant owner actually cares about: a demand forecast, a menu profitability breakdown, and a combo/cross-sell analysis grounded in real order history instead of guesswork.
 
+## Live demo
+
+**[gastrosense-frontend.onrender.com](https://gastrosense-frontend.onrender.com)** — loads a demo preset automatically, no setup needed. ([API docs](https://gastrosense-backend.onrender.com/docs))
+
+Both services run on Render's free tier, so they spin down after ~15 minutes idle — the first request after that can take 30-60 seconds to wake up. That's a free-hosting quirk, not a bug.
+
 ## Preview
 
 | Sales forecast | Menu engineering | Cross-sales combos |
