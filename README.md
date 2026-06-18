@@ -30,12 +30,9 @@ It takes raw order data (CSV exports from POS systems like iiko or R-Keeper, or 
 
 **AI copilot.** A chat panel backed by a small RAG pipeline (TF-IDF over per-domain summaries of the live database, plus the project docs) and Gemini. It can answer "why isn't X a good combo with Y" using the actual lift numbers above, not a guess from item names. If a question can't be answered from the indexed data, it says so instead of making something up. Gemini calls go through a multi-model fallback chain so a single model hitting its free-tier quota doesn't take the whole assistant down.
 
-## Two ways to look at this project
+## A note on history
 
-1. **Full stack, locally (recommended)** — the React dashboard + FastAPI backend + SQLite + the AI chat assistant, all in Docker Compose. This is the real thing, with live model training and the RAG-grounded chat.
-2. **`dashboard/`** — a standalone single-file Streamlit version with baked-in demo presets and PDF export, meant to be deployed somewhere free (Render) as a zero-setup link to look at without cloning anything. It doesn't talk to the FastAPI backend; it's a separate, lighter artifact for quick browsing.
-
-The rest of this README is about option 1.
+The first version of this project was a single-file Streamlit app with baked-in demo presets — simple to deploy for free, but no real backend, no live model training, no database. It's kept around at [`legacy-streamlit-dashboard/`](legacy-streamlit-dashboard/) for reference, but it's no longer deployed or maintained. Everything described below is the current version: a real React frontend talking to a real FastAPI backend.
 
 ## Architecture
 
