@@ -581,16 +581,18 @@ function App() {
                                             </ResponsiveContainer>
                                         </div>
 
-                                        {/* Forecast insights */}
+                                        {/* Forecast insights. While the background job is still training,
+                                            the forecast is empty - show a placeholder instead of a misleading
+                                            $0.0k / -100%. */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
                                             <div className="bg-[#111827] border border-[var(--color-brand-border)] rounded-xl p-3">
                                                 <p className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-1">Next 7 days forecast</p>
-                                                <p className="text-lg font-extrabold text-white">${(next7Total / 1000).toFixed(1)}k</p>
+                                                <p className="text-lg font-extrabold text-white">{forecastDays.length > 0 ? `$${(next7Total / 1000).toFixed(1)}k` : '…'}</p>
                                             </div>
                                             <div className="bg-[#111827] border border-[var(--color-brand-border)] rounded-xl p-3">
                                                 <p className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-1">vs. last 7 days</p>
-                                                <p className={`text-lg font-extrabold ${forecastTrendPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                    {forecastTrendPct >= 0 ? '+' : ''}{forecastTrendPct.toFixed(1)}%
+                                                <p className={`text-lg font-extrabold ${forecastDays.length === 0 ? 'text-[var(--color-brand-muted)]' : forecastTrendPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    {forecastDays.length > 0 ? `${forecastTrendPct >= 0 ? '+' : ''}${forecastTrendPct.toFixed(1)}%` : '…'}
                                                 </p>
                                             </div>
                                         </div>
