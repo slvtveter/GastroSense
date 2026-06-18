@@ -1,5 +1,10 @@
-# Деплой только дашборда-портфолио (демо-данные, без MySQL).
-# В Render: New → Blueprint → подключить репозиторий.
+# Three independent deploy targets in one Blueprint:
+# 1. gastrosense-portfolio - standalone Streamlit demo, no backend needed.
+# 2. gastrosense-backend   - FastAPI + SQLite + RAG/Gemini chat.
+# 3. gastrosense-frontend  - React dashboard, talks to gastrosense-backend's
+#    public URL (Render's free plan can't accept private-network traffic,
+#    so this has to be the public https:// address, not an internal host).
+# In Render: New -> Blueprint -> connect this repository.
 services:
   - type: web
     name: gastrosense-portfolio
@@ -19,3 +24,23 @@ services:
         sync: false
       - key: DEMO_URL
         sync: false
+
+  - type: web
+    name: gastrosense-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+
+  - type: web
+    name: gastrosense-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    plan: free
+    envVars:
+      - key: BACKEND_ORIGIN
+        value: https://gastrosense-backend.onrender.com

@@ -1,0 +1,19 @@
+server {
+    listen 80;
+    
+    location / {
+        root /usr/share/nginx/html;
+        index index.html index.htm;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Проксируем запросы API на бэкенд. BACKEND_ORIGIN по умолчанию равен
+    # "http://backend:8000" (имя сервиса в docker-compose); для деплоя, где
+    # frontend и backend - два отдельных сервиса на разных доменах (например,
+    # Render), переменная переопределяется публичным HTTPS-адресом backend.
+    location /api/ {
+        proxy_pass ${BACKEND_ORIGIN}/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
