@@ -215,12 +215,20 @@ function App() {
   // Unified ranked combo list for the cross-sales screen - either every pair in the
   // menu (no item picked) or every pair involving the picked item, always sorted by
   // lift so the best synergies float to the top and the worst sink to the bottom.
-  const comboRows = (selectedItemForCombo
+  const allComboRows = (selectedItemForCombo
     ? comboPairs
         .filter((p) => p.itemA === selectedItemForCombo || p.itemB === selectedItemForCombo)
         .map((p) => ({ label: p.itemA === selectedItemForCombo ? p.itemB : p.itemA, lift: p.lift, support: p.support }))
     : comboPairs.map((p) => ({ label: `${p.itemA} + ${p.itemB}`, lift: p.lift, support: p.support }))
   ).sort((a, b) => b.lift - a.lift);
+
+  // Fits on one screen like the other tabs (no scrolling) - take the best
+  // and worst few instead of an arbitrary prefix, so both green (real
+  // synergy) and red (below random chance) rows stay visible at a glance.
+  const COMBO_ROWS_PER_SIDE = 6;
+  const comboRows = allComboRows.length > COMBO_ROWS_PER_SIDE * 2
+    ? [...allComboRows.slice(0, COMBO_ROWS_PER_SIDE), ...allComboRows.slice(-COMBO_ROWS_PER_SIDE)]
+    : allComboRows;
 
   const forecastDays = chartData.filter((d) => d.revenue == null && d.expected != null);
   const historyPoints = chartData.filter((d) => d.revenue != null);
@@ -654,19 +662,21 @@ function App() {
                                         })}
                                     </div>
 
-                                    <div className="flex-1 overflow-y-auto min-h-0 rounded-xl border border-[var(--color-brand-border)] bg-[#111827] divide-y divide-[var(--color-brand-border)]">
+                                    <div className="rounded-xl border border-[var(--color-brand-border)] bg-[#111827] divide-y divide-[var(--color-brand-border)]">
                                         {comboRows.length === 0 ? (
-                                            <div className="h-full flex items-center justify-center text-sm text-[var(--color-brand-muted)] p-6 text-center">
+                                            <div className="flex items-center justify-center text-sm text-[var(--color-brand-muted)] p-6 text-center">
                                                 Not enough order history for a statistically meaningful combo {selectedItemForCombo ? `with ${selectedItemForCombo}` : ''}.
                                             </div>
                                         ) : (
                                             comboRows.map((row, idx) => {
+                                                const isSecondHalf = allComboRows.length > COMBO_ROWS_PER_SIDE * 2 && idx >= COMBO_ROWS_PER_SIDE;
+                                                const rank = isSecondHalf ? idx - COMBO_ROWS_PER_SIDE + 1 : idx + 1;
                                                 const liftPct = Math.round((row.lift - 1) * 100);
                                                 const positive = row.lift >= 1;
                                                 const barWidth = Math.min(100, Math.abs(liftPct));
                                                 return (
                                                     <div key={`${row.label}-${idx}`} className="flex items-center gap-4 px-4 py-2.5">
-                                                        <span className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase w-6 flex-shrink-0">#{idx + 1}</span>
+                                                        <span className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase w-6 flex-shrink-0">{isSecondHalf ? '↓' : '#'}{rank}</span>
                                                         <span className="font-semibold text-sm text-[var(--color-brand-text)] flex-1 truncate">{row.label}</span>
                                                         <span className="text-[10px] text-[var(--color-brand-muted)] flex-shrink-0 hidden md:inline">{row.support} orders</span>
                                                         <div className="w-24 h-1.5 bg-[#1e293b] rounded-full overflow-hidden flex-shrink-0 hidden sm:block">
