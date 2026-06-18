@@ -15,10 +15,12 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       # Render's free tier is 512 MB RAM / 0.15 CPU. A full year of the heavier
-      # presets (e.g. Fast Food Chain) won't fit, so cap the seeded history here.
-      # Locally (no env var) it still defaults to a full 365 days.
+      # presets won't fit, and the dashboard's longest range is 90 days anyway,
+      # so cap the seeded history at 120 days here (90-day view + forecast
+      # context) - lighter and quicker to populate. Locally (no env var) it
+      # still defaults to a full 365 days.
       - key: FULL_SEED_DAYS
-        value: "180"
+        value: "120"
       # Make glibc return freed memory to the OS more aggressively instead of
       # hoarding it in per-thread arenas - keeps RSS lower for pandas/sklearn
       # workloads on a tiny instance.

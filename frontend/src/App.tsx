@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import ChatInterface from './components/ChatInterface';
-import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ScatterChart, Scatter, ZAxis, ReferenceLine, ReferenceArea } from 'recharts';
+import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ScatterChart, Scatter, ZAxis, ReferenceLine, ReferenceArea, Brush } from 'recharts';
 import { Upload, TrendingUp, Pizza, Network, FileDown, Check, HelpCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -69,7 +69,6 @@ const HISTORY_RANGES = [
     { label: '7D', days: 7 },
     { label: '30D', days: 30 },
     { label: '90D', days: 90 },
-    { label: '1Y', days: 365 },
 ];
 
 const fetchForecast = async (historyDays: number): Promise<ForecastPoint[]> => {
@@ -425,13 +424,15 @@ function App() {
             </div>
         </div>
 
-        <div className="p-4 border-t border-[var(--color-brand-border)] flex items-center gap-2">
-            <button onClick={handleDownloadPDF} className="flex-1 flex items-center justify-center gap-2 bg-[#1e293b] border border-[var(--color-brand-border)] px-4 py-3 rounded-xl hover:bg-[var(--color-brand-card)] transition-colors text-sm font-bold text-[var(--color-brand-muted)]">
+        <div className="p-4 border-t border-[var(--color-brand-border)] relative">
+            <span className="absolute top-1.5 right-2 z-30">
+                <HelpTooltip title="What's in the report" position="bottom-7 right-0">
+                    A one-page PDF summary of the currently selected venue: headline KPIs (revenue, orders, average check), the 7-day demand forecast, the menu engineering breakdown (Stars / Workhorses / Puzzles / Dogs), and the top cross-sell combos. Handy for sharing the snapshot without opening the dashboard.
+                </HelpTooltip>
+            </span>
+            <button onClick={handleDownloadPDF} className="w-full flex items-center justify-center gap-2 bg-[#1e293b] border border-[var(--color-brand-border)] px-4 py-3 rounded-xl hover:bg-[var(--color-brand-card)] transition-colors text-sm font-bold text-[var(--color-brand-muted)] whitespace-nowrap">
                 <FileDown size={16} /> Generate PDF Report
             </button>
-            <HelpTooltip title="What's in the report" position="bottom-7 right-0">
-                A one-page PDF summary of the currently selected venue: headline KPIs (revenue, orders, average check), the 7-day demand forecast, the menu engineering breakdown (Stars / Workhorses / Puzzles / Dogs), and the top cross-sell combos. Handy for sharing the snapshot without opening the dashboard.
-            </HelpTooltip>
         </div>
       </aside>
 
@@ -552,6 +553,16 @@ function App() {
 
                                                 <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Actual Revenue" />
                                                 <Line type="monotone" dataKey="expected" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} name="AI Forecast" />
+                                                {/* Draggable range selector (like a trading chart) - drag the
+                                                    handles to zoom into any window within the selected period. */}
+                                                <Brush
+                                                    dataKey="name"
+                                                    height={22}
+                                                    travellerWidth={9}
+                                                    stroke="#3b82f6"
+                                                    fill="#0b0f19"
+                                                    tickFormatter={() => ''}
+                                                />
                                                 </AreaChart>
                                             </ResponsiveContainer>
                                         </div>
