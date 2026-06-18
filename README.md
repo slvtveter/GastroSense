@@ -39,17 +39,6 @@ The rest of this README is about option 1.
 
 ## Architecture
 
-```mermaid
-graph TD
-    User([Restaurant owner / manager]) -->|Upload CSV or pick a demo preset| FE[React + TypeScript Dashboard :80]
-    FE -->|REST API| BE[FastAPI Backend :8000]
-    BE -->|SQLAlchemy ORM| DB[(SQLite)]
-    BE -->|Background tasks| ML[ML Engine]
-    ML -->|Reads order history| DB
-    ML -->|Forecast, K-Means, market basket| DB
-    BE -->|RAG context + prompt| AI[Gemini API]
-```
-
 | Layer | Stack |
 |---|---|
 | Frontend | React, TypeScript, Vite, TailwindCSS, Recharts, TanStack Query |

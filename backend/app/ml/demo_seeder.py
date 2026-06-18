@@ -67,6 +67,52 @@ PRESETS_CONFIG = {
     }
 }
 
+# Deliberate item affinities so the cross-sales lift analysis shows a realistic
+# mix of real synergy (lift > 1) and anti-synergy (lift < 1), instead of every
+# pair just reflecting whatever independent random sampling happens to produce
+# (which skews uniformly below 1, since picking with replacement makes exact
+# duplicate-free pairings slightly less likely than true chance). Multiplier
+# adjusts a candidate item's selection weight when its paired item is already
+# in the same order; pairs not listed here are left to fall out naturally.
+AFFINITY_CONFIG = {
+    "Casual Coffee Shop": [
+        ("Croissant", "Cappuccino", 6.0),
+        ("Blueberry Muffin", "Latte", 5.0),
+        ("Avocado Toast", "Green Tea", 4.5),
+        ("Breakfast Sandwich", "Mocha", 0.12),
+        ("Oatmeal", "Espresso", 0.15),
+    ],
+    "Fine Dining Restaurant": [
+        ("Wagyu Steak", "Vintage Pinot Noir", 6.0),
+        ("Oysters Rockefeller", "Champagne", 5.5),
+        ("Truffle Risotto", "Chardonnay", 4.5),
+        ("Crème Brûlée", "Champagne", 0.12),
+        ("Foie Gras", "Chardonnay", 0.15),
+    ],
+    "Fast Food Chain": [
+        ("Classic Burger", "French Fries (L)", 6.0),
+        ("Double Bacon Burger", "Milkshake", 5.0),
+        ("Crispy Chicken Sandwich", "Cola", 4.5),
+        ("Apple Pie", "Onion Rings", 0.12),
+        ("Soft Serve Ice Cream", "French Fries (S)", 0.15),
+    ],
+    "Vegan Cafe": [
+        ("Beyond Burger", "Sweet Potato Fries", 6.0),
+        ("Quinoa Bowl", "Acai Smoothie", 5.0),
+        ("Kale Salad", "Detox Juice", 4.5),
+        ("Vegan Brownie", "Kombucha", 0.12),
+        ("Mushroom Risotto (V)", "Matcha Latte", 0.15),
+    ],
+    "Food Truck": [
+        ("Street Taco (Beef)", "Horchata", 6.0),
+        ("Burrito Supreme", "Mexican Coke", 5.0),
+        ("Loaded Nachos", "Guacamole Side", 4.5),
+        ("Churros", "Jarritos", 0.12),
+        ("Quesadilla", "Chips & Salsa", 0.15),
+    ],
+}
+
+
 def clean_database(db: Session):
     """Deletes all existing records to ensure a fresh demo state."""
     db.query(models.OrderItem).delete()
@@ -108,6 +154,13 @@ def seed_demo_data(
     weights = [random.uniform(0.1, 1.0) for _ in MENU]
     weights.sort(reverse=True)
 
+    # name -> [(partner_index, weight_multiplier), ...], both directions
+    item_index_by_name = {name: i for i, (name, _, _) in enumerate(MENU)}
+    affinity_map: dict[str, list[tuple[int, float]]] = {}
+    for a, b, mult in AFFINITY_CONFIG.get(preset_name, []):
+        affinity_map.setdefault(a, []).append((item_index_by_name[b], mult))
+        affinity_map.setdefault(b, []).append((item_index_by_name[a], mult))
+
     # Pre-allocate order IDs ourselves instead of flushing once per order to
     # get an autoincrement ID back - that round-trip per row is what made
     # seeding a full year take 30-40+ seconds. Building plain dicts and doing
@@ -134,7 +187,21 @@ def seed_demo_data(
             min_items, max_items = config["items_per_order"]
             num_items = random.randint(min_items, max_items)
 
-            selected_items = random.choices(MENU, weights=weights, k=num_items)
+            # Pick items one at a time (instead of one independent batch draw)
+            # so already-chosen items can bias the weight of their affinity
+            # partners - this is what makes some pairs lift > 1 and others < 1.
+            selected_items = []
+            chosen_names: list[str] = []
+            for _ in range(num_items):
+                adj_weights = weights
+                if chosen_names:
+                    adj_weights = list(weights)
+                    for chosen_name in chosen_names:
+                        for partner_idx, mult in affinity_map.get(chosen_name, []):
+                            adj_weights[partner_idx] *= mult
+                pick = random.choices(MENU, weights=adj_weights, k=1)[0]
+                selected_items.append(pick)
+                chosen_names.append(pick[0])
 
             order_id = next_order_id
             next_order_id += 1

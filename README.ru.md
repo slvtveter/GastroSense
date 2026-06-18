@@ -39,17 +39,6 @@ GastroSense — дашборд ресторанной аналитики, кот
 
 ## Архитектура
 
-```mermaid
-graph TD
-    User([Владелец ресторана / менеджер]) -->|Загрузка CSV или выбор демо-пресета| FE[React + TypeScript Дашборд :80]
-    FE -->|REST API| BE[FastAPI Backend :8000]
-    BE -->|SQLAlchemy ORM| DB[(SQLite)]
-    BE -->|Background tasks| ML[ML Engine]
-    ML -->|Читает историю заказов| DB
-    ML -->|Прогноз, K-Means, market basket| DB
-    BE -->|RAG-контекст + промпт| AI[Gemini API]
-```
-
 | Слой | Стек |
 |---|---|
 | Frontend | React, TypeScript, Vite, TailwindCSS, Recharts, TanStack Query |
