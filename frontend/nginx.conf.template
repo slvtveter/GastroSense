@@ -11,9 +11,13 @@ server {
     # "http://backend:8000" (имя сервиса в docker-compose); для деплоя, где
     # frontend и backend - два отдельных сервиса на разных доменах (например,
     # Render), переменная переопределяется публичным HTTPS-адресом backend.
+    # Host НЕ выставляем в $host (хост фронтенда) - на платформах типа Render
+    # хост-заголовок используется для маршрутизации между сервисами, и чужой
+    # Host там приводит к 502. Без явного proxy_set_header nginx сам
+    # подставит $proxy_host (хост из BACKEND_ORIGIN), что и нужно.
     location /api/ {
         proxy_pass ${BACKEND_ORIGIN}/api/;
-        proxy_set_header Host $host;
+        proxy_ssl_server_name on;
         proxy_set_header X-Real-IP $remote_addr;
     }
 }
