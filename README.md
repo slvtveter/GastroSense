@@ -1,88 +1,84 @@
-# GastroSense: End-to-End SaaS ресторанной аналитики и предсказания спроса
+# GastroSense
 
-**GastroSense** — это готовая к продакшену аналитическая SaaS-платформа уровня Middle ML Engineer / Data Scientist, разработанная специально для предприятий общественного питания (кафе, бургерные, рестораны). 
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-07405E?logo=sqlite&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini_API-AI_assistant-8E75B2)
 
-Сервис позволяет ресторанному менеджменту загружать сырые выгрузки чеков из популярных CRM-систем (iiko, R-Keeper, МойСклад), сохранять их в структурированном виде, автоматически обучать ML-модели и получать бизнес-инсайты на интерактивном дашборде.
+**[Russian version / Русская версия](README.ru.md)**
 
----
+A restaurant analytics dashboard I built to practice end-to-end ML engineering: not just training models, but shipping them behind a real API, a real frontend, and a chat assistant that can explain the results in plain language.
 
-## 🏗️ Архитектура платформы
+It takes raw order data (CSV exports from POS systems like iiko or R-Keeper, or generated demo data) and turns it into three things a restaurant owner actually cares about: a demand forecast, a menu profitability breakdown, and a combo/cross-sell analysis grounded in real order history instead of guesswork.
+
+## Preview
+
+| Sales forecast | Menu engineering | Cross-sales combos |
+|---|---|---|
+| ![Forecast](docs/screenshots/forecast.png) | ![Menu engineering](docs/screenshots/menu.png) | ![Cross-sales](docs/screenshots/cross_sales.png) |
+
+## What it does
+
+**Sales forecasting.** Trains four candidate models (Ridge, Random Forest, XGBoost, LightGBM) on calendar features, lags, and rolling averages, validates them on held-out data with walk-forward validation, and picks whichever one actually performed best instead of hardcoding a single algorithm. The chosen model then produces a recursive 7-day forecast. The dashboard lets you scroll back through 7 days to a full year of history alongside it.
+
+**Menu engineering.** Clusters every menu item into the classic BCG-style segments (Stars, Workhorses, Puzzles, Dogs) using K-Means on popularity and margin, after standardizing both features so neither dominates the clustering just because of scale.
+
+**Cross-sales / combo analysis.** This is the part I iterated on the most. A naive "what's bought together most often" ranking gets fooled by rare items — if something is only ordered twice and both times paired with coffee, that's not a real pattern, it's noise. So instead of raw co-occurrence, the dashboard computes **lift**: how many times more often two items are actually bought together compared to what random chance alone would predict. Lift above 1x means real synergy worth promoting as a bundle; lift below 1x means the items get ordered together *less* than chance would predict, even if they technically co-occur sometimes. Pairs with too few orders behind them are filtered out entirely so small samples can't fake a signal.
+
+**AI copilot.** A chat panel backed by a small RAG pipeline (TF-IDF over per-domain summaries of the live database, plus the project docs) and Gemini. It can answer "why isn't X a good combo with Y" using the actual lift numbers above, not a guess from item names. If a question can't be answered from the indexed data, it says so instead of making something up. Gemini calls go through a multi-model fallback chain so a single model hitting its free-tier quota doesn't take the whole assistant down.
+
+## Two ways to look at this project
+
+1. **Full stack, locally (recommended)** — the React dashboard + FastAPI backend + SQLite + the AI chat assistant, all in Docker Compose. This is the real thing, with live model training and the RAG-grounded chat.
+2. **`dashboard/`** — a standalone single-file Streamlit version with baked-in demo presets and PDF export, meant to be deployed somewhere free (Render) as a zero-setup link to look at without cloning anything. It doesn't talk to the FastAPI backend; it's a separate, lighter artifact for quick browsing.
+
+The rest of this README is about option 1.
+
+## Architecture
 
 ```mermaid
 graph TD
-    User([Владелец ресторана / Менеджер]) -->|Загрузка Excel/CSV чеков| FE[Streamlit Дашборд :8501]
-    FE -->|HTTP API запросы| BE[FastAPI Backend :8000]
-    BE -->|Валидация Pydantic / ORM| DB[(MySQL Database :3306)]
-    BE -->|Асинхронные Background Tasks| ML[ML Engine]
-    ML -->|Запросы исторических данных| DB
-    ML -->|Menu Engineering K-Means / TS Forecast| DB
+    User([Restaurant owner / manager]) -->|Upload CSV or pick a demo preset| FE[React + TypeScript Dashboard :80]
+    FE -->|REST API| BE[FastAPI Backend :8000]
+    BE -->|SQLAlchemy ORM| DB[(SQLite)]
+    BE -->|Background tasks| ML[ML Engine]
+    ML -->|Reads order history| DB
+    ML -->|Forecast, K-Means, market basket| DB
+    BE -->|RAG context + prompt| AI[Gemini API]
 ```
 
-1. **Frontend**: Streamlit-приложение с премиальным темным интерфейсом и интерактивными графиками Plotly.js.
-2. **Backend**: Высокопроизводительный асинхронный FastAPI веб-сервер. Валидирует загруженные файлы чеков с помощью Pydantic и нормализует их в реляционную БД.
-3. **Database**: СУБД MySQL. Хранит заказы (`orders`), товарные позиции (`order_items`), результаты сегментации меню (`menu_analysis`) и прогнозы спроса (`demand_forecast`).
-4. **ML Engine**: Фоновый модуль машинного обучения:
-   - **K-Means Clustering**: Кластеризация всего меню ресторана на 4 квадранта матрицы Menu Engineering (Звезды, Лошадки, Загадки, Собаки) на основе популярности и маржинальности.
-   - **Time Series Forecaster**: Автоматически выбирает лучшую модель (Ridge, Random Forest, XGBoost или LightGBM) по результатам валидации на исторических данных и строит рекурсивный прогноз выручки и объема заказов на 7 дней вперед.
+| Layer | Stack |
+|---|---|
+| Frontend | React, TypeScript, Vite, TailwindCSS, Recharts, TanStack Query |
+| Backend | FastAPI, Pydantic, SQLAlchemy |
+| Database | SQLite |
+| ML Engine | scikit-learn, XGBoost, LightGBM, pandas |
+| AI Copilot | TF-IDF + cosine similarity RAG (no vector DB), Gemini API |
 
-5. **AI Copilot (RAG + Gemini)**: Чат-ассистент справа собирает контекст из БД, результатов ML, отчётов и документации проекта, после чего отвечает через Gemini с опорой на найденные источники.
+The ML Engine runs as background tasks after every upload/seed — forecasting, menu clustering, and market basket analysis, described above. The AI Copilot indexes rolled-up summaries of the current database plus this README, then hands the retrieved context to Gemini.
 
----
+## Running it
 
-## 🦾 Используемые технологии и алгоритмы
+Requirements: [Docker](https://www.docker.com/) and Docker Compose.
 
-### 1. Menu Engineering (K-Means Clustering)
-Алгоритм группирует позиции меню на основе двух бизнес-метрик:
-- **Популярность (Popularity)**: Суммарное количество проданных блюд.
-- **Прибыльность (Profit Margin)**: Средняя маржа на блюдо (моделируется на основе реальных ресторанных бенчмарков Food Cost).
+```bash
+docker-compose up --build
+```
 
-После масштабирования признаков (`StandardScaler`) обучается **K-Means** (4 кластера). Центроиды кластеров автоматически сопоставляются с бизнес-сегментами матрицы Смита-Шона:
-- 🌟 **Звезды (Stars)**: Высокие продажи, высокая маржа.
-- 🐎 **Рабочие лошадки (Workhorses)**: Высокие продажи, низкая маржа.
-- ❓ **Загадки (Puzzles)**: Низкие продажи, высокая маржа.
-- 🐕 **Собаки (Dogs)**: Низкие продажи, низкая маржа.
+Then open:
+- Dashboard: [http://localhost](http://localhost)
+- API docs (Swagger): [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### 2. Временные ряды и прогнозирование спроса (LightGBM)
-Для прогнозирования выручки и спроса строятся следующие признаки:
-- **Календарные фичи**: День недели, день месяца, месяц, флаг выходного дня (пятница-воскресенье).
-- **Лаги (Lags)**: Значения целевой переменной за 1, 2 и 7 дней назад.
-- **Скользящие средние (Rolling Averages)**: Среднее за 3 и 7 дней для фильтрации шумов.
+There's no real restaurant's data sitting in this repo, obviously — the dashboard auto-loads a demo preset (Casual Coffee Shop, by default) on first run, or pick a different one from the sidebar dropdown, or upload your own CSV export. Seeding a preset generates a year of synthetic-but-realistic order history (weekly seasonality, trends, holidays, and item co-purchase patterns included) and kicks off model training in the background.
 
-Модель обучается на исторических данных. Перед прогнозом кандидаты (Ridge, Random Forest, XGBoost, LightGBM) проверяются на отложенной выборке (walk-forward validation), и выбирается модель с наименьшей ошибкой (RMSE). Предсказание на 7 дней вперед строится рекурсивно: значение, спрогнозированное на день T, подается как лаг для дня T+1.
+## Tests
 
-### 3. Анализ совместных покупок (Market Basket Analysis)
-Определяется условная вероятность совместной покупки позиций в одном чеке: доля чеков с позицией B среди чеков, где уже есть позиция A. Результат выводится в виде интерактивной тепловой карты сопряженности блюд.
+```bash
+cd backend
+pytest
+```
 
----
-
-## ⚡ Быстрый старт за 1 клик
-
-Проект полностью контейнеризирован и запускается одной командой.
-
-### Предварительные требования
-У вас должен быть установлен [Docker](https://www.docker.com/) и [Docker Compose](https://docs.docker.com/compose/).
-
-### Запуск платформы
-
-1. Клонируйте репозиторий (или перейдите в папку проекта):
-   ```bash
-   cd project_portfolio
-   ```
-
-2. Запустите Docker контейнеры:
-   ```bash
-   docker-compose up --build
-   ```
-
-3. После успешного запуска перейдите по адресам:
-   - **Интерактивный дашборд**: [http://localhost:8501](http://localhost:8501)
-   - **Документация API (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
-
----
-
-## 🚀 Как протестировать демо-режим?
-
-1. Откройте дашборд в браузере: [http://localhost:8501](http://localhost:8501).
-2. На боковой панели слева нажмите кнопку **«🚀 Запустить демо-режим (1 клик)»**.
-3. Бэкенд автоматически очистит базу данных, сгенерирует **180 дней реалистичной истории продаж** для вымышленного заведения **"True Burgers"** (с учетом недельной сезонности, трендов, праздников и зависимостей в чеках) и запустит обучение ML-моделей.
-4. Страница обновится, и вы увидите полноценный рабочий дашборд с прогнозами спроса, картой ассоциаций и рекомендациями.
+Covers the forecaster's model selection, the menu clustering, and the chat agent's RAG grounding and fallback behavior.

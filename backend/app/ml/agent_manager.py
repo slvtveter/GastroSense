@@ -66,7 +66,7 @@ class AgentManager:
         You are an expert restaurant analyst for GastroSense.
         Reply in the same language the user's question is written in (English or Russian), concisely and to the point.
         Use only the relevant context from the RAG retrieval below. If the context doesn't have enough data, say so plainly instead of making up numbers.
-        Where possible, cite sources in the format [source:title].
+        Do not cite sources inline or after individual sentences. If you used the retrieved context, add a single short citation at the very end of your whole answer, in plain round parentheses (not square brackets), listing only the human-readable titles, e.g. (источник: Menu analysis, Restaurant overview). Never include raw source ids like "database:menu_analysis". If the answer didn't rely on the retrieved context, omit the citation entirely.
 
         Context:
         {context}

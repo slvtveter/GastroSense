@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import ChatInterface from './components/ChatInterface';
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ScatterChart, Scatter, ZAxis, ReferenceLine, ReferenceArea } from 'recharts';
-import { Upload, TrendingUp, Pizza, Network, FileDown, Check, Sparkles, HelpCircle } from 'lucide-react';
+import { Upload, TrendingUp, Pizza, Network, FileDown, Check, HelpCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
@@ -28,11 +28,9 @@ type CrossSalesMatrix = {
     index: string[];
     columns: string[];
     data: number[][];
-};
-
-type ComboRecommendation = {
-    name: string;
-    prob: number;
+    lift: number[][];
+    support: number[][];
+    total_orders: number;
 };
 
 type ForecastModelInfo = {
@@ -52,17 +50,31 @@ const EMPTY_CROSS_SALES: CrossSalesMatrix = {
     index: [],
     columns: [],
     data: [],
+    lift: [],
+    support: [],
+    total_orders: 0,
 };
 
+// Pairs with fewer co-occurring orders than this are skipped in the combo
+// leaderboards - with too few checks, lift/confidence is just sampling noise.
+const MIN_COMBO_SUPPORT = 5;
+
 // API Callers
-const fetchStats = async () => (await axios.get('http://localhost:8000/api/v1/analytics/stats')).data;
+const fetchStats = async () => (await axios.get('/api/v1/analytics/stats')).data;
 const fetchForecastModelInfo = async (): Promise<ForecastModelInfo> =>
-    (await axios.get('http://localhost:8000/api/v1/analytics/forecast-info')).data;
+    (await axios.get('/api/v1/analytics/forecast-info')).data;
 const fetchSeedStatus = async (): Promise<SeedStatus> =>
-    (await axios.get('http://localhost:8000/api/v1/upload/seed-status')).data;
-const fetchForecast = async (): Promise<ForecastPoint[]> => {
-    const hist = (await axios.get('http://localhost:8000/api/v1/analytics/history?days=14')).data;
-    const fore = (await axios.get('http://localhost:8000/api/v1/analytics/forecast')).data;
+    (await axios.get('/api/v1/upload/seed-status')).data;
+const HISTORY_RANGES = [
+    { label: '7D', days: 7 },
+    { label: '30D', days: 30 },
+    { label: '90D', days: 90 },
+    { label: '1Y', days: 365 },
+];
+
+const fetchForecast = async (historyDays: number): Promise<ForecastPoint[]> => {
+    const hist = (await axios.get(`/api/v1/analytics/history?days=${historyDays}`)).data;
+    const fore = (await axios.get('/api/v1/analytics/forecast')).data;
 
     const merged: ForecastPoint[] = [];
     hist.forEach((h: any, i: number) => {
@@ -86,7 +98,7 @@ const fetchForecast = async (): Promise<ForecastPoint[]> => {
     return merged;
 };
 const fetchMenu = async (): Promise<MenuItemPoint[]> => {
-    const data = (await axios.get('http://localhost:8000/api/v1/analytics/menu')).data;
+    const data = (await axios.get('/api/v1/analytics/menu')).data;
 
     return (data ?? []).map((item: any) => ({
         item_name: item.item_name,
@@ -98,14 +110,18 @@ const fetchMenu = async (): Promise<MenuItemPoint[]> => {
     }));
 };
 const fetchCrossSales = async (): Promise<CrossSalesMatrix> => {
-    const data = (await axios.get('http://localhost:8000/api/v1/analytics/associations')).data;
+    const data = (await axios.get('/api/v1/analytics/associations')).data;
+
+    const toMatrix = (rows: any): number[][] =>
+        Array.isArray(rows) ? rows.map((row: any) => (Array.isArray(row) ? row.map((value: any) => Number(value ?? 0)) : [])) : [];
 
     return {
         index: Array.isArray(data?.index) ? data.index : [],
         columns: Array.isArray(data?.columns) ? data.columns : [],
-        data: Array.isArray(data?.data)
-            ? data.data.map((row: any) => (Array.isArray(row) ? row.map((value: any) => Number(value ?? 0)) : []))
-            : [],
+        data: toMatrix(data?.data),
+        lift: toMatrix(data?.lift),
+        support: toMatrix(data?.support),
+        total_orders: Number(data?.total_orders ?? 0),
     };
 };
 
@@ -161,37 +177,55 @@ function App() {
   const [activeTab, setActiveTab] = useState('forecast');
   const [activePreset, setActivePreset] = useState(PRESETS[0]);
   const [selectedItemForCombo, setSelectedItemForCombo] = useState<string | null>(null);
+  const [historyDays, setHistoryDays] = useState(30);
 
   // Queries
   const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['stats'], queryFn: fetchStats });
-  const { data: chartData = [], isLoading: chartLoading } = useQuery<ForecastPoint[]>({ queryKey: ['forecast'], queryFn: fetchForecast });
+  const { data: chartData = [], isLoading: chartLoading } = useQuery<ForecastPoint[]>({
+      queryKey: ['forecast', historyDays],
+      queryFn: () => fetchForecast(historyDays),
+  });
   const { data: modelInfo } = useQuery<ForecastModelInfo>({ queryKey: ['forecast-info'], queryFn: fetchForecastModelInfo });
   const { data: menuData = [], isLoading: menuLoading } = useQuery<MenuItemPoint[]>({ queryKey: ['menu'], queryFn: fetchMenu });
   const { data: crossData = EMPTY_CROSS_SALES, isLoading: crossLoading } = useQuery<CrossSalesMatrix>({ queryKey: ['cross'], queryFn: fetchCrossSales });
 
-  const getTopAssociations = (selectedItem: string): ComboRecommendation[] => {
-    const itemIndex = crossData.index.indexOf(selectedItem);
-    if (itemIndex === -1) {
-        return [];
+  // Lift > 1 means the pair is bought together more often than random chance would
+  // predict (real synergy); lift < 1 means less often than chance (not a real combo,
+  // even if the items happen to co-occur sometimes). Pairs below MIN_COMBO_SUPPORT
+  // orders are skipped entirely - too few checks for lift to mean anything.
+  const comboPairs = (() => {
+    const n = crossData.index.length;
+    const pairs: { itemA: string; itemB: string; lift: number; support: number }[] = [];
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            const support = Number(crossData.support[i]?.[j] ?? 0);
+            if (support < MIN_COMBO_SUPPORT) continue;
+            const lift = Number(crossData.lift[i]?.[j] ?? 0);
+            const confAB = Number(crossData.data[i]?.[j] ?? 0);
+            const confBA = Number(crossData.data[j]?.[i] ?? 0);
+            const [itemA, itemB] = confAB >= confBA
+                ? [crossData.index[i], crossData.columns[j]]
+                : [crossData.index[j], crossData.columns[i]];
+            pairs.push({ itemA, itemB, lift, support });
+        }
     }
+    return pairs;
+  })();
 
-    const row = crossData.data[itemIndex] ?? [];
-    return crossData.columns
-        .map((name, index) => ({
-            name,
-            prob: Number(row[index] ?? 0),
-        }))
-        .filter((assoc) => assoc.name !== selectedItem && Number.isFinite(assoc.prob) && assoc.prob > 0)
-        .sort((a, b) => b.prob - a.prob)
-        .slice(0, 3);
-  };
-
-  const topAssociations = selectedItemForCombo ? getTopAssociations(selectedItemForCombo) : [];
+  // Unified ranked combo list for the cross-sales screen - either every pair in the
+  // menu (no item picked) or every pair involving the picked item, always sorted by
+  // lift so the best synergies float to the top and the worst sink to the bottom.
+  const comboRows = (selectedItemForCombo
+    ? comboPairs
+        .filter((p) => p.itemA === selectedItemForCombo || p.itemB === selectedItemForCombo)
+        .map((p) => ({ label: p.itemA === selectedItemForCombo ? p.itemB : p.itemA, lift: p.lift, support: p.support }))
+    : comboPairs.map((p) => ({ label: `${p.itemA} + ${p.itemB}`, lift: p.lift, support: p.support }))
+  ).sort((a, b) => b.lift - a.lift);
 
   const forecastDays = chartData.filter((d) => d.revenue == null && d.expected != null);
-  const historyDays = chartData.filter((d) => d.revenue != null);
+  const historyPoints = chartData.filter((d) => d.revenue != null);
   const next7Total = forecastDays.reduce((acc, d) => acc + (d.expected ?? 0), 0);
-  const last7Days = historyDays.slice(-7);
+  const last7Days = historyPoints.slice(-7);
   const last7Total = last7Days.reduce((acc, d) => acc + (d.revenue ?? 0), 0);
   const forecastTrendPct = last7Total > 0 ? ((next7Total - last7Total) / last7Total) * 100 : 0;
 
@@ -213,7 +247,7 @@ function App() {
   // Mutations
   const seedMutation = useMutation({
       mutationFn: async (preset: string) => {
-          await axios.post('http://localhost:8000/api/v1/upload/seed-demo', null, {
+          await axios.post('/api/v1/upload/seed-demo', null, {
               params: { preset_name: preset }
           });
       },
@@ -233,6 +267,21 @@ function App() {
       setActivePreset(preset);
       seedMutation.mutate(preset);
   };
+
+  // A freshly deployed instance has an empty database - without this, a first-
+  // time visitor sees an all-zero dashboard and has to know to re-pick the
+  // already-selected preset to trigger seeding. Auto-load the default preset
+  // once stats have loaded and turn out to be empty.
+  const autoSeedTriggeredRef = useRef(false);
+  useEffect(() => {
+      if (autoSeedTriggeredRef.current || statsLoading || !stats) return;
+      if (stats.total_orders === 0) {
+          autoSeedTriggeredRef.current = true;
+          seedMutation.mutate(activePreset);
+      } else {
+          autoSeedTriggeredRef.current = true;
+      }
+  }, [statsLoading, stats]);
 
   // The dashboard renders instantly off the fast 30-day seed; this polls
   // whether the full-year background extension is still running, and
@@ -265,7 +314,7 @@ function App() {
       formData.append("file", file);
 
       try {
-          await axios.post('http://localhost:8000/api/v1/upload/checks', formData, {
+          await axios.post('/api/v1/upload/checks', formData, {
               headers: { 'Content-Type': 'multipart/form-data' }
           });
           setUploadMessage("Upload successful! Refreshing models...");
@@ -288,7 +337,7 @@ function App() {
   };
 
   const handleDownloadPDF = () => {
-      window.open(`http://localhost:8000/api/v1/export/pdf?preset_name=${activePreset}`, '_blank');
+      window.open(`/api/v1/export/pdf?preset_name=${activePreset}`, '_blank');
   };
 
   return (
@@ -394,10 +443,9 @@ function App() {
                             {statsLoading ? '...' : `$${stats?.avg_check}`}
                         </div>
                     </div>
-                    <div className="bg-[var(--color-brand-card)] border border-rose-900/50 rounded-[16px] p-5 shadow-sm relative overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent"></div>
-                        <div className="text-[10px] font-bold text-rose-300 uppercase tracking-wider relative z-10">Avg Items/Order</div>
-                        <div className="text-2xl font-extrabold text-white mt-1 relative z-10">
+                    <div className="bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] rounded-[16px] p-5 shadow-sm">
+                        <div className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider">Avg Items/Order</div>
+                        <div className="text-2xl font-extrabold text-white mt-1">
                             {statsLoading ? '...' : stats?.avg_items_per_check}
                         </div>
                     </div>
@@ -407,27 +455,44 @@ function App() {
                     
                     {activeTab === 'forecast' && (
                         <>
-                            <div className="mb-4">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Revenue History & AI Forecast</h3>
-                                    {modelInfo?.model && (
-                                        <div className="group relative inline-flex">
-                                            <HelpCircle size={15} className="text-[var(--color-brand-muted)] cursor-help hover:text-white transition-colors" />
-                                            <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute left-0 top-6 z-20 w-72 bg-[#0b0f19] border border-[var(--color-brand-border)] rounded-xl p-3 shadow-2xl text-left">
-                                                <p className="text-xs font-bold text-white mb-1">How we calculated this: {modelInfo.model}</p>
-                                                <p className="text-[11px] text-[var(--color-brand-muted)] leading-relaxed">{modelInfo.description}</p>
-                                                {modelInfo.validation_rmse != null && (
-                                                    <p className="text-[11px] text-emerald-400 mt-2">
-                                                        Picked automatically: lowest validation error (${modelInfo.validation_rmse.toFixed(2)}) over the last {modelInfo.validated_on_days} days, vs. Ridge/Random Forest/XGBoost/LightGBM.
-                                                    </p>
-                                                )}
+                            <div className="mb-4 flex items-start justify-between gap-4 flex-wrap">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Revenue History & AI Forecast</h3>
+                                        {modelInfo?.model && (
+                                            <div className="group relative inline-flex">
+                                                <HelpCircle size={15} className="text-[var(--color-brand-muted)] cursor-help hover:text-white transition-colors" />
+                                                <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute left-0 top-6 z-20 w-72 bg-[#0b0f19] border border-[var(--color-brand-border)] rounded-xl p-3 shadow-2xl text-left">
+                                                    <p className="text-xs font-bold text-white mb-1">How we calculated this: {modelInfo.model}</p>
+                                                    <p className="text-[11px] text-[var(--color-brand-muted)] leading-relaxed">{modelInfo.description}</p>
+                                                    {modelInfo.validation_rmse != null && (
+                                                        <p className="text-[11px] text-emerald-400 mt-2">
+                                                            Picked automatically: lowest validation error (${modelInfo.validation_rmse.toFixed(2)}) over the last {modelInfo.validated_on_days} days, vs. Ridge/Random Forest/XGBoost/LightGBM.
+                                                        </p>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-[var(--color-brand-muted)] mt-1">
+                                        Solid area = actual daily revenue. Dashed line = next 7 days predicted by the model.
+                                    </p>
                                 </div>
-                                <p className="text-xs text-[var(--color-brand-muted)] mt-1">
-                                    Solid area = actual daily revenue. Dashed line = next 7 days predicted by the model.
-                                </p>
+                                <div className="flex gap-1 bg-[#111827] border border-[var(--color-brand-border)] rounded-lg p-1 flex-shrink-0">
+                                    {HISTORY_RANGES.map((range) => (
+                                        <button
+                                            key={range.label}
+                                            onClick={() => setHistoryDays(range.days)}
+                                            className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
+                                                historyDays === range.days
+                                                    ? 'bg-[var(--color-brand-accent)] text-white'
+                                                    : 'text-[var(--color-brand-muted)] hover:text-white'
+                                            }`}
+                                        >
+                                            {range.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                             <div className="flex-1 w-full flex flex-col gap-5 min-h-0">
                                 {chartLoading ? (
@@ -444,7 +509,15 @@ function App() {
                                                     </linearGradient>
                                                 </defs>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" vertical={false} />
-                                                <XAxis dataKey="name" stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} />
+                                                <XAxis
+                                                    dataKey="name"
+                                                    stroke="#94a3b8"
+                                                    tick={{fill: '#94a3b8', fontSize: 12}}
+                                                    tickLine={false}
+                                                    axisLine={false}
+                                                    minTickGap={40}
+                                                    interval="preserveStartEnd"
+                                                />
                                                 <YAxis stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
                                                 <Tooltip content={<CustomForecastTooltip />} />
 
@@ -546,84 +619,69 @@ function App() {
 
                     {activeTab === 'cross' && (
                         <>
-                             <div className="flex justify-between items-center mb-6">
+                            <div className="mb-4">
                                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">Cross-Sales & Combos</h3>
+                                <p className="text-xs text-[var(--color-brand-muted)] mt-1">
+                                    Ranked by lift: how many times more often items are bought together than random chance predicts. Green = real synergy, red = worse than chance - don't bundle.
+                                </p>
                             </div>
-                            <div className="flex-1 flex flex-col gap-6">
-                                {crossLoading ? (
-                                    <div className="flex items-center justify-center h-full text-[var(--color-brand-muted)]">Computing market basket analysis...</div>
-                                ) : (
-                                    <>
-                                        <div className="bg-[#111827] border border-[var(--color-brand-border)] p-5 rounded-xl">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <p className="text-sm text-[var(--color-brand-muted)]">Select a base item to view top associated products for combo deals:</p>
-                                                {crossData?.index && crossData.index.length > 0 && (
-                                                    <span className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider bg-[#0b0f19] border border-[var(--color-brand-border)] rounded-full px-2.5 py-1 flex-shrink-0">
-                                                        {crossData.index.length} items
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {crossData?.index && crossData.index.length > 0 ? (
-                                                    crossData.index.map((item: string) => {
-                                                        const isSelected = selectedItemForCombo === item;
-                                                        return (
-                                                            <button
-                                                                key={item}
-                                                                onClick={() => setSelectedItemForCombo(item)}
-                                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${isSelected ? 'bg-[var(--color-brand-accent)] text-white border-[var(--color-brand-accent)] shadow-md' : 'bg-[var(--color-brand-card)] text-[var(--color-brand-muted)] border-[var(--color-brand-border)] hover:border-gray-500 hover:text-white'}`}
-                                                            >
-                                                                {isSelected && <Check size={12} />}
-                                                                {item}
-                                                            </button>
-                                                        );
-                                                    })
-                                                ) : (
-                                                    <p className="text-sm text-[var(--color-brand-muted)]">No items available for cross-sales analysis. Seed more data or check backend.</p>
-                                                )}
-                                            </div>
-                                        </div>
+                            {crossLoading ? (
+                                <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)]">Computing market basket analysis...</div>
+                            ) : crossData.index.length === 0 ? (
+                                <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-brand-muted)]">No items available for cross-sales analysis. Seed more data or check backend.</div>
+                            ) : (
+                                <div className="flex-1 flex flex-col gap-4 min-h-0">
+                                    <div className="flex flex-wrap gap-2 flex-shrink-0">
+                                        <button
+                                            onClick={() => setSelectedItemForCombo(null)}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${!selectedItemForCombo ? 'bg-[var(--color-brand-accent)] text-white border-[var(--color-brand-accent)] shadow-md' : 'bg-[#111827] text-[var(--color-brand-muted)] border-[var(--color-brand-border)] hover:border-gray-500 hover:text-white'}`}
+                                        >
+                                            {!selectedItemForCombo && <Check size={12} />}
+                                            All Pairs
+                                        </button>
+                                        {crossData.index.map((item: string) => {
+                                            const isSelected = selectedItemForCombo === item;
+                                            return (
+                                                <button
+                                                    key={item}
+                                                    onClick={() => setSelectedItemForCombo(item)}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${isSelected ? 'bg-[var(--color-brand-accent)] text-white border-[var(--color-brand-accent)] shadow-md' : 'bg-[#111827] text-[var(--color-brand-muted)] border-[var(--color-brand-border)] hover:border-gray-500 hover:text-white'}`}
+                                                >
+                                                    {isSelected && <Check size={12} />}
+                                                    {item}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
 
-                                        {selectedItemForCombo && (
-                                            <div className="flex-1 bg-[var(--color-brand-card)] border border-indigo-900/50 p-6 rounded-xl relative overflow-hidden">
-                                                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent"></div>
-                                                 <h4 className="text-lg font-bold text-white relative z-10 mb-1 flex items-center gap-2">
-                                                     <Sparkles size={18} className="text-indigo-400" />
-                                                     Combo Recommendations for: <span className="text-indigo-400">{selectedItemForCombo}</span>
-                                                 </h4>
-                                                 <p className="text-xs text-[var(--color-brand-muted)] relative z-10 mb-4">Customers who order this also order:</p>
-                                                 {topAssociations.length > 0 ? (
-                                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
-                                                         {topAssociations.map((assoc, idx) => {
-                                                             const pct = +(assoc.prob * 100).toFixed(1);
-                                                             return (
-                                                                 <div key={assoc.name} className="bg-[#0b0f19] border border-[var(--color-brand-border)] p-4 rounded-xl flex flex-col items-center text-center transition-transform hover:-translate-y-0.5 hover:border-indigo-700/50">
-                                                                     <div className="text-2xl mb-2">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</div>
-                                                                     <p className="font-bold text-[var(--color-brand-text)] text-sm mb-2">{assoc.name}</p>
-                                                                     <div className="w-full h-1.5 bg-[#1e293b] rounded-full overflow-hidden mb-1.5">
-                                                                         <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${Math.min(100, pct)}%` }}></div>
-                                                                     </div>
-                                                                     <p className="text-xs text-emerald-400 font-semibold">{pct}% co-occurrence</p>
-                                                                 </div>
-                                                             );
-                                                         })}
-                                                     </div>
-                                                 ) : (
-                                                     <div className="relative z-10 text-sm text-[var(--color-brand-muted)] flex items-center gap-2">
-                                                         <Network size={16} /> No strong combo recommendations found for this item.
-                                                     </div>
-                                                 )}
+                                    <div className="flex-1 overflow-y-auto min-h-0 rounded-xl border border-[var(--color-brand-border)] bg-[#111827] divide-y divide-[var(--color-brand-border)]">
+                                        {comboRows.length === 0 ? (
+                                            <div className="h-full flex items-center justify-center text-sm text-[var(--color-brand-muted)] p-6 text-center">
+                                                Not enough order history for a statistically meaningful combo {selectedItemForCombo ? `with ${selectedItemForCombo}` : ''}.
                                             </div>
+                                        ) : (
+                                            comboRows.map((row, idx) => {
+                                                const liftPct = Math.round((row.lift - 1) * 100);
+                                                const positive = row.lift >= 1;
+                                                const barWidth = Math.min(100, Math.abs(liftPct));
+                                                return (
+                                                    <div key={`${row.label}-${idx}`} className="flex items-center gap-4 px-4 py-2.5">
+                                                        <span className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase w-6 flex-shrink-0">#{idx + 1}</span>
+                                                        <span className="font-semibold text-sm text-[var(--color-brand-text)] flex-1 truncate">{row.label}</span>
+                                                        <span className="text-[10px] text-[var(--color-brand-muted)] flex-shrink-0 hidden md:inline">{row.support} orders</span>
+                                                        <div className="w-24 h-1.5 bg-[#1e293b] rounded-full overflow-hidden flex-shrink-0 hidden sm:block">
+                                                            <div className={`h-full rounded-full ${positive ? 'bg-emerald-400' : 'bg-rose-400'}`} style={{ width: `${barWidth}%` }}></div>
+                                                        </div>
+                                                        <span className={`text-xs font-bold w-16 text-right flex-shrink-0 ${positive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                            {liftPct > 0 ? '+' : ''}{liftPct}%
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })
                                         )}
-                                        {!selectedItemForCombo && (
-                                            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-[var(--color-brand-muted)] text-sm border-2 border-dashed border-[var(--color-brand-border)] rounded-xl">
-                                                <Network size={28} className="opacity-40" />
-                                                Select an item above to generate combo recommendations.
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                            </div>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
 

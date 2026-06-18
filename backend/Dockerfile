@@ -13,9 +13,11 @@ COPY backend/requirements.txt .
 # Устанавливаем зависимости Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем код приложения
+# Копируем код приложения. .env НЕ копируем - секреты (GEMINI_API_KEY) приходят
+# в контейнер через env_file в docker-compose.yml во время запуска, а не во
+# время сборки. Если зашить .env в образ, ключ навсегда останется в слое
+# образа - утечка при пуше образа в любой реестр или просто docker history.
 COPY backend/app ./app
-COPY backend/.env .env
 
 # Копируем README, чтобы он был доступен RAG-движку внутри контейнера
 # на той же относительной глубине, что и в локальной разработке.

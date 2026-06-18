@@ -42,7 +42,7 @@ function MarkdownMessage({ text }: { text: string }) {
 }
 
 const sendMessageToApi = async (message: string) => {
-  const response = await axios.post('http://localhost:8000/api/v1/ml/chat', { message });
+  const response = await axios.post('/api/v1/ml/chat', { message });
   return response.data.reply;
 };
 

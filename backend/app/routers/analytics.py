@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
-import pandas as pd
 from typing import List, Dict, Any
 from app import schemas, crud, models
 from app.database import get_db
 from app.ml.forecaster import get_last_model_info
+from app.ml.market_basket import compute_associations
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -88,44 +88,11 @@ def get_historical_sales(db: Session = Depends(get_db), days: int = 30):
 @router.get("/associations")
 def get_item_associations(db: Session = Depends(get_db)):
     """Perform Market Basket Analysis to compute conditional probabilities of item pairs.
-    Returns: P(Item B | Item A) - the probability of ordering Item B if Item A is ordered.
+    Returns:
+    - data: P(Item B | Item A) - confidence, the probability of ordering Item B if Item A is ordered.
+    - lift: how many times more often A and B are bought together than random chance would predict
+      (>1 = real synergy, <1 = bought together less than chance, i.e. not a real combo).
+    - support: raw count of orders containing both A and B - used to filter out pairs that only
+      look strong because one of the items is rarely ordered (small-sample noise).
     """
-    # Fetch all order items and their names
-    items = db.query(models.OrderItem.order_id, models.OrderItem.item_name).all()
-    if not items:
-        return {"index": [], "columns": [], "data": []}
-    
-    df = pd.DataFrame(items, columns=["order_id", "item_name"])
-    
-    # 1. Identify top 15 most popular items to keep the matrix clean and readable
-    top_items = df["item_name"].value_counts().head(15).index.tolist()
-    if len(top_items) < 2:
-        return {"index": [], "columns": [], "data": []}
-        
-    df_unique = df.drop_duplicates()
-    df_top = df_unique[df_unique["item_name"].isin(top_items)]
-    
-    # 2. Perform self-join on order_id to get co-occurring item pairs in each check
-    merged = df_top.merge(df_top, on="order_id")
-    
-    # Create co-occurrence matrix (crosstab)
-    crosstab = pd.crosstab(merged["item_name_x"], merged["item_name_y"])
-    
-    # Ensure square matrix in the correct order
-    crosstab = crosstab.reindex(index=top_items, columns=top_items, fill_value=0).astype(float)
-    
-    # 3. Calculate conditional probabilities: P(J | I) = count(I and J) / count(I)
-    counts = df_top["item_name"].value_counts()
-    
-    for item in top_items:
-        if counts[item] > 0:
-            crosstab.loc[item] = crosstab.loc[item] / counts[item]
-            
-    # Round to 2 decimal places
-    crosstab = crosstab.round(3)
-    
-    return {
-        "index": top_items,
-        "columns": top_items,
-        "data": crosstab.values.tolist()
-    }
+    return compute_associations(db)

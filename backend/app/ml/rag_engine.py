@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.logger import logger
+from app.ml.market_basket import MIN_COMBO_SUPPORT, compute_associations
 
 
 @dataclass(slots=True)
@@ -160,6 +161,7 @@ class RAGEngine:
         chunks.extend(self._build_forecast_chunks(db))
         chunks.extend(self._build_item_mix_chunks(db))
         chunks.extend(self._build_category_chunks(db))
+        chunks.extend(self._build_cross_sales_chunks(db))
 
         return chunks
 
@@ -384,6 +386,74 @@ class RAGEngine:
                 metadata={"categories": len(rows)},
             )
         ]
+
+    def _build_cross_sales_chunks(self, db: Session) -> List[KnowledgeChunk]:
+        """One chunk per item with its lift/support against every other item, so
+        the assistant can explain *why* any specific pair is or isn't a good combo
+        using the same statistics the Cross-Sales dashboard tab shows, instead of
+        guessing from item names alone (e.g. "why aren't Breakfast Sandwich and
+        Mocha a good combo together?"). Per-item chunks (rather than one big
+        rollup) guarantee an arbitrary pair survives the per-chunk truncation,
+        since a rollup of all ~100 pairs would cut off whichever ones don't make
+        the top/bottom slice."""
+        result = compute_associations(db)
+        index = result["index"]
+        if len(index) < 2:
+            return []
+
+        lift = result["lift"]
+        support = result["support"]
+        confidence = result["data"]
+
+        # Kept as a single standalone chunk rather than repeated in every per-item
+        # chunk below - repeating words like "promote"/"bundle" 15x previously
+        # made unrelated questions (e.g. "which item should I promote?", a menu
+        # engineering question) get hijacked by the cross-sales chunks in TF-IDF
+        # retrieval, crowding out the actually relevant chunk.
+        chunks: List[KnowledgeChunk] = [
+            KnowledgeChunk(
+                id="db:cross_sales_explainer",
+                source="database:cross_sales",
+                title="How combo lift scores work",
+                text=(
+                    "Explanation of lift scores used in cross-sales combo analysis: lift measures how many times "
+                    "more often two menu items are bought together than random chance would predict. Lift above "
+                    "1x means real synergy between the two items. Lift below 1x means they're bought together "
+                    f"less often than chance alone would predict. Pairs with fewer than {MIN_COMBO_SUPPORT} "
+                    "co-occurring orders are excluded as statistically unreliable."
+                ),
+                metadata={},
+            )
+        ]
+
+        for i, item in enumerate(index):
+            lines = []
+            for j, other in enumerate(index):
+                if i == j or support[i][j] < MIN_COMBO_SUPPORT:
+                    continue
+                lift_val = lift[i][j]
+                lift_pct = round((lift_val - 1) * 100)
+                tag = "synergy" if lift_val > 1 else "below random chance"
+                lines.append(
+                    f"{item} + {other}: lift {lift_val:.2f}x ({'+' if lift_pct >= 0 else ''}{lift_pct}% vs random), "
+                    f"{int(support[i][j])} orders together, P({other}|{item})={confidence[i][j]:.2f} ({tag})."
+                )
+            if not lines:
+                continue
+            lines.sort(key=lambda line: "below random" in line)
+
+            text_content = f"Combo lift scores for {item}:\n" + "\n".join(lines)
+            chunks.append(
+                KnowledgeChunk(
+                    id=f"db:cross_sales:{item}",
+                    source="database:cross_sales",
+                    title=f"Cross-sales combos involving {item}",
+                    text=text_content,
+                    metadata={"item": item, "pairs": len(lines)},
+                )
+            )
+
+        return chunks
 
     def _read_text_file(self, path: Path) -> str:
         try:
