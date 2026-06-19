@@ -1,10 +1,25 @@
+# Access log that shows who actually visited: the real client IP comes from
+# X-Forwarded-For (Render's edge puts the visitor's IP there - $remote_addr is
+# only Render's internal proxy), and the User-Agent reveals the device/browser.
+# Written to stdout so it shows up in the Render service logs.
+log_format visitor '$http_x_forwarded_for - [$time_local] "$request" $status '
+                   'ref="$http_referer" ua="$http_user_agent"';
+
 server {
     listen 80;
-    
+
+    # Don't log static asset noise (JS/CSS/images) - only real page + API hits.
+    location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|map)$ {
+        root /usr/share/nginx/html;
+        access_log off;
+        try_files $uri =404;
+    }
+
     location / {
         root /usr/share/nginx/html;
         index index.html index.htm;
         try_files $uri $uri/ /index.html;
+        access_log /dev/stdout visitor;
     }
 
     # Проксируем запросы API на бэкенд. BACKEND_ORIGIN по умолчанию равен
