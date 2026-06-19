@@ -198,6 +198,12 @@ function App() {
       queryKey: ['stats'],
       queryFn: fetchStats,
       placeholderData: keepPreviousData,
+      // While the DB is still empty (cold-started backend seeding itself), keep
+      // polling so the dashboard fills in the moment data is ready.
+      refetchInterval: (query) => {
+          const d = query.state.data as any;
+          return (!d || Number(d.total_orders) === 0) ? 4000 : false;
+      },
   });
   // Only treat the KPIs as ready when every field is a real, finite number, so
   // a half-empty or failed response can never render "$NaN" / "$undefined".
@@ -207,10 +213,30 @@ function App() {
   const { data: chartData = [], isLoading: chartLoading } = useQuery<ForecastPoint[]>({
       queryKey: ['forecast', historyDays],
       queryFn: () => fetchForecast(historyDays),
+      // Poll while there's no history yet so the chart fills in once the
+      // backend has seeded itself.
+      refetchInterval: (query) => {
+          const d = query.state.data as ForecastPoint[] | undefined;
+          return (!d || d.length === 0) ? 4000 : false;
+      },
   });
   const { data: modelInfo } = useQuery<ForecastModelInfo>({ queryKey: ['forecast-info'], queryFn: fetchForecastModelInfo });
-  const { data: menuData = [], isLoading: menuLoading } = useQuery<MenuItemPoint[]>({ queryKey: ['menu'], queryFn: fetchMenu });
-  const { data: crossData = EMPTY_CROSS_SALES, isLoading: crossLoading } = useQuery<CrossSalesMatrix>({ queryKey: ['cross'], queryFn: fetchCrossSales });
+  const { data: menuData = [], isLoading: menuLoading } = useQuery<MenuItemPoint[]>({
+      queryKey: ['menu'],
+      queryFn: fetchMenu,
+      refetchInterval: (query) => {
+          const d = query.state.data as MenuItemPoint[] | undefined;
+          return (!d || d.length === 0) ? 4000 : false;
+      },
+  });
+  const { data: crossData = EMPTY_CROSS_SALES, isLoading: crossLoading } = useQuery<CrossSalesMatrix>({
+      queryKey: ['cross'],
+      queryFn: fetchCrossSales,
+      refetchInterval: (query) => {
+          const d = query.state.data as CrossSalesMatrix | undefined;
+          return (!d || d.index.length === 0) ? 4000 : false;
+      },
+  });
 
   // Lift > 1 means the pair is bought together more often than random chance would
   // predict (real synergy); lift < 1 means less often than chance (not a real combo,
@@ -299,29 +325,29 @@ function App() {
       seedMutation.mutate(preset);
   };
 
-  // A freshly deployed instance has an empty database - without this, a first-
-  // time visitor sees an all-zero dashboard and has to know to re-pick the
-  // already-selected preset to trigger seeding. Auto-load the default preset
-  // once stats have loaded and turn out to be empty.
-  const autoSeedTriggeredRef = useRef(false);
-  useEffect(() => {
-      if (autoSeedTriggeredRef.current || statsLoading || !stats) return;
-      if (stats.total_orders === 0) {
-          autoSeedTriggeredRef.current = true;
-          seedMutation.mutate(activePreset);
-      } else {
-          autoSeedTriggeredRef.current = true;
-      }
-  }, [statsLoading, stats]);
-
   // The dashboard renders instantly off the fast 30-day seed; this polls
-  // whether the full-year background extension is still running, and
-  // refreshes all the data once it flips back to done.
+  // whether the background seeding/training is still running, and refreshes all
+  // the data once it flips back to done.
   const { data: seedStatus } = useQuery<SeedStatus>({
       queryKey: ['seed-status'],
       queryFn: fetchSeedStatus,
       refetchInterval: (query) => (query.state.data?.in_progress ? 3000 : false),
   });
+
+  // Fallback auto-seed. The backend self-seeds on startup when its (ephemeral)
+  // DB is empty, so normally this never fires. But if we ever observe an empty
+  // DB that the backend is NOT already seeding, kick it off from here. Guarded
+  // on seedStatus so we never race a seed that's already running.
+  const autoSeedTriggeredRef = useRef(false);
+  useEffect(() => {
+      if (autoSeedTriggeredRef.current || statsLoading || !stats || !seedStatus) return;
+      if (Number(stats.total_orders) > 0) {
+          autoSeedTriggeredRef.current = true;
+      } else if (!seedStatus.in_progress) {
+          autoSeedTriggeredRef.current = true;
+          seedMutation.mutate(activePreset);
+      }
+  }, [statsLoading, stats, seedStatus]);
   const wasSeedingRef = useRef(false);
   useEffect(() => {
       if (wasSeedingRef.current && seedStatus && !seedStatus.in_progress) {

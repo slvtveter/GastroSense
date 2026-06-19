@@ -1,8 +1,10 @@
 from fastapi import APIRouter, UploadFile, File, Depends, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import pandas as pd
 import io
 import os
+import threading
 from datetime import datetime, timedelta
 from typing import List
 from app import schemas, crud, models
@@ -298,3 +300,50 @@ async def seed_demo(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to seed demo data: {str(e)}")
+
+
+_DEFAULT_PRESET = os.getenv("DEFAULT_PRESET", "Casual Coffee Shop")
+
+
+def _startup_seed_worker(preset_name: str):
+    """Self-heal seed for a cold-started instance: quick window first so the
+    dashboard fills in fast, then training + history extension."""
+    # Flag in_progress BEFORE the first write so the frontend's fallback
+    # auto-seed never races us and kicks off a second (clean_first) seed.
+    _seed_status.update({"in_progress": True, "preset": preset_name, "days_seeded": QUICK_SEED_DAYS})
+    try:
+        now = datetime.now()
+        db = SessionLocal()
+        try:
+            seed_demo_data(db, days=QUICK_SEED_DAYS, preset_name=preset_name, end_date=now, clean_first=True)
+        finally:
+            db.close()
+        _train_and_extend_background(preset_name, now - timedelta(days=QUICK_SEED_DAYS))
+    except Exception as e:
+        logger.error(f"Startup auto-seed failed: {e}")
+        _seed_status["in_progress"] = False
+
+
+def ensure_seeded_on_startup():
+    """Render's free tier wipes the ephemeral SQLite every time the instance
+    spins down (~15 min idle). On startup, if the DB has no orders, seed it
+    automatically in a daemon thread (so server startup isn't blocked) - a cold
+    instance heals itself instead of depending on a browser to trigger seeding,
+    which is what left the dashboard hanging on 'Loading metrics…' after a cold
+    start."""
+    try:
+        db = SessionLocal()
+        try:
+            order_count = db.query(func.count(models.Order.id)).scalar() or 0
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Startup seed check failed: {e}")
+        return
+
+    if order_count > 0:
+        logger.info(f"DB already has {order_count} orders; skipping startup auto-seed.")
+        return
+
+    logger.info("Empty DB on startup - kicking off auto-seed in the background.")
+    threading.Thread(target=_startup_seed_worker, args=(_DEFAULT_PRESET,), daemon=True).start()

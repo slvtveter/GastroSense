@@ -21,6 +21,10 @@ async def lifespan(app: FastAPI):
         print("Database connected and tables verified.")
         with SessionLocal() as db:
             rag_engine.refresh_from_db(db)
+        # Self-heal: if the (ephemeral) DB came up empty after a cold start,
+        # auto-seed it in the background so the dashboard always has data.
+        from app.routers.upload import ensure_seeded_on_startup
+        ensure_seeded_on_startup()
     except Exception as e:
         print(f"Warning: Could not connect to database: {e}")
         print("Starting in 'No-DB' mode (some features will be disabled).")
