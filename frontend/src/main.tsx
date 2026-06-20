@@ -14,6 +14,13 @@ const queryClient = new QueryClient({
       retryDelay: (attempt) => Math.min(2000 * (attempt + 1), 10000),
       refetchOnWindowFocus: false,
     },
+    // Mutations (chat, seed-demo, upload) default to zero retries in React
+    // Query, unlike queries above - so a chat message sent while the backend
+    // is still waking up failed instantly with a raw 502 and never retried.
+    mutations: {
+      retry: 6,
+      retryDelay: (attempt) => Math.min(2000 * (attempt + 1), 10000),
+    },
   },
 })
 
