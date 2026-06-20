@@ -16,8 +16,12 @@
 name: keepalive
 
 on:
+  # Every 5 min. GitHub's scheduler is best-effort and can drift several
+  # minutes under load, so pinging at 5-min (well under the 15-min idle
+  # timeout) leaves margin for that jitter. The service stays up continuously
+  # either way, so a higher ping rate costs no extra Render runtime.
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
 jobs:
