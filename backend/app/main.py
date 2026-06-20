@@ -28,6 +28,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Warning: Could not connect to database: {e}")
         print("Starting in 'No-DB' mode (some features will be disabled).")
+    # Keep the free-tier instance from spinning down (see app/keepalive.py).
+    # Outside the try/except so it starts even if the DB was unreachable.
+    from app.keepalive import start_keepalive
+    start_keepalive()
     yield
     # Shutdown: Clean up or close connections if needed
 
