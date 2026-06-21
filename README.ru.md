@@ -2,21 +2,11 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
-![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-4-38BDF8?logo=tailwindcss&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-07405E?logo=sqlite&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Gemini_API-AI_помощник-8E75B2)
-![Live demo](https://img.shields.io/badge/демо-live-34d399)
-
-<p align="center">
-  <b><a href="https://gastrosense-frontend.onrender.com">🚀 Живое демо</a></b> &nbsp;·&nbsp;
-  <a href="https://gastrosense-backend.onrender.com/docs">Документация API</a> &nbsp;·&nbsp;
-  <a href="README.md">English</a>
-</p>
-
-![GastroSense — дашборд прогнозирования продаж и AI-аналитик](docs/screenshots/forecast.png)
 
 **[English version](README.md)**
 
@@ -24,25 +14,17 @@ GastroSense — дашборд ресторанной аналитики, кот
 
 На входе — сырые данные по заказам (CSV-выгрузки из POS-систем типа iiko или R-Keeper, либо сгенерированные демо-данные), на выходе — три вещи, которые реально интересны владельцу ресторана: прогноз спроса, разбивка меню по прибыльности и анализ комбо/cross-sell, основанный на реальной истории заказов, а не на догадках.
 
-**Ключевое**
-
-- 🔮 **Авто-выбор модели прогноза** — Ridge / Random Forest / XGBoost / LightGBM, выбирается под каждый датасет через walk-forward валидацию
-- 🍽️ **Меню-инжиниринг** через K-Means (Звёзды · Лошадки · Загадки · Собаки)
-- 🔗 **Market-basket lift** — отделяет реальную синергию от шума малой выборки
-- 🤖 **RAG + Gemini аналитик**, опирающийся на живую базу — называет реальные цифры, а не угадывает
-- ⚙️ **FastAPI · React 19 · Tailwind v4 · Recharts**, полностью в Docker и задеплоено на Render
-
 ## Живое демо
 
 **[gastrosense-frontend.onrender.com](https://gastrosense-frontend.onrender.com)** — демо-данные подгружаются автоматически, ничего настраивать не нужно. ([Документация API](https://gastrosense-backend.onrender.com/docs))
 
-Хостинг — бесплатный тариф Render. Бэкенд держит себя «тёплым» лёгким self-ping'ом (фоновый поток периодически пингует свой же публичный адрес), поэтому демо обычно открывается сразу, а не просыпается при каждом заходе. Редкий холодный старт — например, сразу после редеплоя — может занять ~30 секунд.
+Оба сервиса работают на бесплатном тарифе Render, поэтому "засыпают" после ~15 минут без запросов — первый запрос после паузы может грузиться 30-60 секунд. Это особенность бесплатного хостинга, не баг.
 
 ## Превью
 
 | Прогноз продаж | Меню-инжиниринг | Cross-sales комбо |
 |---|---|---|
-| ![Прогноз](docs/screenshots/forecast.png) | ![Меню-инжиниринг](docs/screenshots/menu.png) | ![Cross-sales](docs/screenshots/cross.png) |
+| ![Прогноз](docs/screenshots/forecast.png) | ![Меню-инжиниринг](docs/screenshots/menu.png) | ![Cross-sales](docs/screenshots/cross_sales.png) |
 
 ## Что умеет
 

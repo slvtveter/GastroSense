@@ -2,21 +2,11 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
-![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-4-38BDF8?logo=tailwindcss&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-07405E?logo=sqlite&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Gemini_API-AI_assistant-8E75B2)
-![Live demo](https://img.shields.io/badge/demo-live-34d399)
-
-<p align="center">
-  <b><a href="https://gastrosense-frontend.onrender.com">🚀 Live demo</a></b> &nbsp;·&nbsp;
-  <a href="https://gastrosense-backend.onrender.com/docs">API docs</a> &nbsp;·&nbsp;
-  <a href="#русская-версия">Русская версия</a>
-</p>
-
-![GastroSense — Sales Forecasting & AI Analyst dashboard](docs/screenshots/forecast.png)
 
 **[Russian version (separate file) / Русская версия (отдельный файл)](README.ru.md)** — or just scroll down, it's [also down there](#русская-версия).
 
@@ -24,25 +14,17 @@ A restaurant analytics dashboard I built to practice end-to-end ML engineering: 
 
 It takes raw order data (CSV exports from POS systems like iiko or R-Keeper, or generated demo data) and turns it into three things a restaurant owner actually cares about: a demand forecast, a menu profitability breakdown, and a combo/cross-sell analysis grounded in real order history instead of guesswork.
 
-**Highlights**
-
-- 🔮 **Auto-selected forecaster** — Ridge / Random Forest / XGBoost / LightGBM, chosen per-dataset by walk-forward validation
-- 🍽️ **Menu engineering** via K-Means clustering (Stars · Workhorses · Puzzles · Dogs)
-- 🔗 **Market-basket lift** analysis that separates real synergy from sampling noise
-- 🤖 **RAG + Gemini analyst** grounded in the live database — it cites real numbers, not guesses
-- ⚙️ **FastAPI · React 19 · Tailwind v4 · Recharts**, fully Dockerized and deployed on Render
-
 ## Live demo
 
 **[gastrosense-frontend.onrender.com](https://gastrosense-frontend.onrender.com)** — loads a demo preset automatically, no setup needed. ([API docs](https://gastrosense-backend.onrender.com/docs))
 
-Hosted on Render's free tier. The backend keeps itself warm with a lightweight in-process self-ping (a daemon thread that periodically pings its own public URL), so the demo normally loads right away instead of cold-starting on every visit. A rare cold start — e.g. just after a redeploy — may still take ~30 seconds.
+Both services run on Render's free tier, so they spin down after ~15 minutes idle — the first request after that can take 30-60 seconds to wake up. That's a free-hosting quirk, not a bug.
 
 ## Preview
 
 | Sales forecast | Menu engineering | Cross-sales combos |
 |---|---|---|
-| ![Forecast](docs/screenshots/forecast.png) | ![Menu engineering](docs/screenshots/menu.png) | ![Cross-sales](docs/screenshots/cross.png) |
+| ![Forecast](docs/screenshots/forecast.png) | ![Menu engineering](docs/screenshots/menu.png) | ![Cross-sales](docs/screenshots/cross_sales.png) |
 
 ## What it does
 
@@ -107,13 +89,13 @@ GastroSense — дашборд ресторанной аналитики, кот
 
 **[gastrosense-frontend.onrender.com](https://gastrosense-frontend.onrender.com)** — демо-данные подгружаются автоматически, ничего настраивать не нужно. ([Документация API](https://gastrosense-backend.onrender.com/docs))
 
-Хостинг — бесплатный тариф Render. Бэкенд держит себя «тёплым» лёгким self-ping'ом (фоновый поток периодически пингует свой же публичный адрес), поэтому демо обычно открывается сразу, а не просыпается при каждом заходе. Редкий холодный старт — например, сразу после редеплоя — может занять ~30 секунд.
+Оба сервиса работают на бесплатном тарифе Render, поэтому "засыпают" после ~15 минут без запросов — первый запрос после паузы может грузиться 30-60 секунд. Это особенность бесплатного хостинга, не баг.
 
 ### Превью
 
 | Прогноз продаж | Меню-инжиниринг | Cross-sales комбо |
 |---|---|---|
-| ![Прогноз](docs/screenshots/forecast.png) | ![Меню-инжиниринг](docs/screenshots/menu.png) | ![Cross-sales](docs/screenshots/cross.png) |
+| ![Прогноз](docs/screenshots/forecast.png) | ![Меню-инжиниринг](docs/screenshots/menu.png) | ![Cross-sales](docs/screenshots/cross_sales.png) |
 
 ### Что умеет
 
