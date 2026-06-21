@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import ChatInterface from './components/ChatInterface';
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ScatterChart, Scatter, ZAxis, ReferenceLine, ReferenceArea, Brush } from 'recharts';
-import { Upload, TrendingUp, Pizza, Network, FileDown, Check, HelpCircle, BarChart3 } from 'lucide-react';
+import { Upload, TrendingUp, Pizza, Network, FileDown, Check, HelpCircle, BarChart3, Utensils, Sparkles, DollarSign, ShoppingBag, Receipt, Layers, ArrowUpRight, ArrowDownRight, Cpu } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import axios from 'axios';
 
@@ -58,6 +58,18 @@ const EMPTY_CROSS_SALES: CrossSalesMatrix = {
 // Pairs with fewer co-occurring orders than this are skipped in the combo
 // leaderboards - with too few checks, lift/confidence is just sampling noise.
 const MIN_COMBO_SUPPORT = 5;
+
+// Accent ramp used across the charts so colours stay consistent with the CSS.
+const C = {
+    indigo: '#6e7bff',
+    violet: '#a78bfa',
+    cyan: '#22d3ee',
+    emerald: '#34d399',
+    rose: '#fb7185',
+    slate: '#94a3b8',
+    grid: 'rgba(255,255,255,0.06)',
+    axis: '#64748b',
+};
 
 // API Callers
 const fetchStats = async () => (await axios.get('/api/v1/analytics/stats')).data;
@@ -124,13 +136,45 @@ const fetchCrossSales = async (): Promise<CrossSalesMatrix> => {
     };
 };
 
+// Animated count-up for the KPI numbers. Eases from the previous value to the
+// new one with requestAnimationFrame, so a preset switch animates instead of
+// snapping. Purely presentational - takes a finished number + a formatter.
+function AnimatedNumber({ value, format, duration = 950 }: { value: number; format: (n: number) => string; duration?: number }) {
+    const [display, setDisplay] = useState(value);
+    const fromRef = useRef(value);
+    const rafRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        const from = fromRef.current;
+        const to = value;
+        if (from === to) return;
+        const start = performance.now();
+        const tick = (now: number) => {
+            const t = Math.min(1, (now - start) / duration);
+            const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+            setDisplay(from + (to - from) * eased);
+            if (t < 1) {
+                rafRef.current = requestAnimationFrame(tick);
+            } else {
+                fromRef.current = to;
+            }
+        };
+        rafRef.current = requestAnimationFrame(tick);
+        return () => {
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
+    }, [value, duration]);
+
+    return <>{format(display)}</>;
+}
+
 const CustomMenuTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-[#1e293b] border border-[var(--color-brand-border)] p-3 rounded-lg shadow-xl text-[var(--color-brand-text)] z-50">
+        <div className="glass-card rounded-xl p-3 text-[var(--color-brand-text)] z-50">
           <p className="font-bold text-white mb-1">{data.item_name}</p>
-          <p className="text-xs text-[var(--color-brand-muted)]">Cluster: <span className="font-semibold text-[var(--color-brand-accent)]">{data.cluster_label}</span></p>
+          <p className="text-xs text-[var(--color-brand-muted)]">Cluster: <span className="font-semibold text-gradient-accent">{data.cluster_label}</span></p>
           <p className="text-xs">Sales (Pop): {data.popularity_sales.toLocaleString()}</p>
           <p className="text-xs">Margin: ${parseFloat(data.avg_margin).toFixed(2)}</p>
         </div>
@@ -148,11 +192,11 @@ const CustomForecastTooltip = ({ active, payload, label }: any) => {
         value == null ? null : `$${value.toFixed(2)}`;
 
     const rows: { label: string; value: string; color: string }[] = [];
-    if (data.revenue != null) rows.push({ label: 'Actual revenue', value: fmt(data.revenue)!, color: '#3b82f6' });
-    if (data.expected != null) rows.push({ label: 'AI forecast', value: fmt(data.expected)!, color: '#94a3b8' });
+    if (data.revenue != null) rows.push({ label: 'Actual revenue', value: fmt(data.revenue)!, color: C.indigo });
+    if (data.expected != null) rows.push({ label: 'AI forecast', value: fmt(data.expected)!, color: C.violet });
 
     return (
-        <div className="bg-[#1e293b] border border-[var(--color-brand-border)] p-3 rounded-lg shadow-xl text-[var(--color-brand-text)] text-xs space-y-1 max-w-[220px]">
+        <div className="glass-card rounded-xl p-3 text-[var(--color-brand-text)] text-xs space-y-1 max-w-[220px]">
             <p className="font-bold text-white mb-1">{label}</p>
             {rows.map((row) => (
                 <p key={row.label} className="flex justify-between gap-3">
@@ -165,10 +209,10 @@ const CustomForecastTooltip = ({ active, payload, label }: any) => {
 };
 
 const MENU_QUADRANTS = [
-    { label: 'Stars', emoji: '⭐', color: '#34d399', desc: 'High popularity & margin — promote heavily.' },
-    { label: 'Workhorses', emoji: '💪', color: '#3b82f6', desc: 'Popular, lower margin — keep, optimize cost.' },
-    { label: 'Puzzles', emoji: '🤔', color: '#cbd5e1', desc: 'High margin, low popularity — upsell, reposition.' },
-    { label: 'Dogs', emoji: '🗑️', color: '#f87171', desc: 'Low popularity & margin — consider removing.' },
+    { label: 'Stars', emoji: '⭐', color: C.emerald, desc: 'High popularity & margin — promote heavily.' },
+    { label: 'Workhorses', emoji: '💪', color: C.indigo, desc: 'Popular, lower margin — keep, optimize cost.' },
+    { label: 'Puzzles', emoji: '🤔', color: C.slate, desc: 'High margin, low popularity — upsell, reposition.' },
+    { label: 'Dogs', emoji: '🗑️', color: C.rose, desc: 'Low popularity & margin — consider removing.' },
 ];
 
 // Hover help icon, matching the one on the Sales & Forecast chart. `position`
@@ -177,7 +221,7 @@ const MENU_QUADRANTS = [
 const HelpTooltip = ({ title, children, position = 'left-0 top-6' }: { title: string; children: React.ReactNode; position?: string }) => (
     <span className="group relative inline-flex">
         <HelpCircle size={14} className="text-[var(--color-brand-muted)] cursor-help hover:text-white transition-colors" />
-        <span className={`invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute ${position} z-30 w-72 bg-[#0b0f19] border border-[var(--color-brand-border)] rounded-xl p-3 shadow-2xl text-left font-normal normal-case tracking-normal block`}>
+        <span className={`invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute ${position} z-30 w-72 glass-card rounded-xl p-3 shadow-2xl text-left font-normal normal-case tracking-normal block`}>
             <span className="text-xs font-bold text-white mb-1 block">{title}</span>
             <span className="text-[11px] text-[var(--color-brand-muted)] leading-relaxed block">{children}</span>
         </span>
@@ -186,10 +230,20 @@ const HelpTooltip = ({ title, children, position = 'left-0 top-6' }: { title: st
 
 function App() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('forecast');
+  const [activeTab, setActiveTab] = useState(() => {
+      const h = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
+      return ['forecast', 'menu', 'cross'].includes(h) ? h : 'forecast';
+  });
   const [activePreset, setActivePreset] = useState(PRESETS[0]);
   const [selectedItemForCombo, setSelectedItemForCombo] = useState<string | null>(null);
   const [historyDays, setHistoryDays] = useState(30);
+
+  // Keep the active module in the URL hash so views are shareable / deep-linkable.
+  useEffect(() => {
+      if (window.location.hash.replace('#', '') !== activeTab) {
+          window.history.replaceState(null, '', `#${activeTab}`);
+      }
+  }, [activeTab]);
 
   // Queries. keepPreviousData stops the KPI cards from blanking to undefined
   // while a preset switch reseeds and refetches - they keep showing the last
@@ -366,7 +420,7 @@ function App() {
 
       setIsUploading(true);
       setUploadMessage("Uploading & Analyzing CSV...");
-      
+
       const formData = new FormData();
       formData.append("file", file);
 
@@ -375,7 +429,7 @@ function App() {
               headers: { 'Content-Type': 'multipart/form-data' }
           });
           setUploadMessage("Upload successful! Refreshing models...");
-          
+
           // Re-fetch all data
           queryClient.invalidateQueries({ queryKey: ['stats'] });
           queryClient.invalidateQueries({ queryKey: ['forecast'] });
@@ -383,7 +437,7 @@ function App() {
           queryClient.invalidateQueries({ queryKey: ['cross'] });
           setSelectedItemForCombo(null);
           setActivePreset("Custom CSV Data");
-          
+
           setTimeout(() => setUploadMessage(null), 3000);
       } catch (error: any) {
           setUploadMessage(`Upload failed: ${error.response?.data?.detail || error.message}`);
@@ -397,129 +451,182 @@ function App() {
       window.open(`/api/v1/export/pdf?preset_name=${activePreset}`, '_blank');
   };
 
+  const TAB_META: Record<string, { title: string; subtitle: string }> = {
+      forecast: { title: 'Sales Forecasting & Anomaly Detection', subtitle: 'Daily revenue history with a 7-day machine-learning forecast.' },
+      menu: { title: 'Menu Engineering Matrix', subtitle: 'Every item clustered by popularity and margin (BCG-style).' },
+      cross: { title: 'Cross-Sales & Combo Constructor', subtitle: 'Market-basket lift — which items truly sell better together.' },
+  };
+
+  const kpis = [
+      { key: 'rev', label: 'Total Revenue', icon: DollarSign, accent: C.indigo, value: Number(stats?.total_revenue ?? 0), format: (n: number) => `$${(n / 1000).toFixed(1)}k`, sub: 'all-time' },
+      { key: 'ord', label: 'Total Orders', icon: ShoppingBag, accent: C.violet, value: Number(stats?.total_orders ?? 0), format: (n: number) => Math.round(n).toLocaleString(), sub: 'all-time' },
+      { key: 'chk', label: 'Avg Check', icon: Receipt, accent: C.cyan, value: Number(stats?.avg_check ?? 0), format: (n: number) => `$${n.toFixed(2)}`, sub: 'per order' },
+      { key: 'itm', label: 'Avg Items / Order', icon: Layers, accent: C.emerald, value: Number(stats?.avg_items_per_check ?? 0), format: (n: number) => n.toFixed(1), sub: 'basket size' },
+  ];
+
   return (
-    <div className="min-h-screen bg-[var(--color-brand-bg)] font-sans text-[var(--color-brand-text)] flex overflow-hidden">
-      
+    <div className="relative min-h-screen font-sans text-[var(--color-brand-text)] flex overflow-hidden">
+      <div className="app-grid" aria-hidden="true" />
+
       {/* Sidebar: Navigation & Controls */}
-      <aside className="w-64 bg-[#111827] border-r border-[var(--color-brand-border)] flex flex-col justify-between hidden md:flex">
+      <aside className="relative z-10 w-72 glass border-r border-[var(--border-soft)] flex-col justify-between hidden md:flex">
         <div>
-            <div className="p-6 border-b border-[var(--color-brand-border)] flex items-center gap-3">
-                <span className="text-3xl">🍽️</span>
-                <h1 className="text-xl font-extrabold tracking-tight">Gastro<span className="text-[var(--color-brand-accent)]">Sense</span></h1>
+            <div className="px-6 py-6 border-b border-[var(--border-soft)] flex items-center gap-3">
+                <span className="w-10 h-10 rounded-2xl flex items-center justify-center btn-accent shadow-lg">
+                    <Utensils size={20} className="text-white" />
+                </span>
+                <div className="leading-none">
+                    <h1 className="text-lg font-extrabold font-display tracking-tight">Gastro<span className="text-gradient-accent">Sense</span></h1>
+                    <p className="text-[10px] font-semibold text-[var(--color-brand-faint)] uppercase tracking-[0.2em] mt-1">AI Analytics</p>
+                </div>
             </div>
-            
-            <div className="p-4 space-y-6">
+
+            <div className="p-4 space-y-7">
                 <div>
-                    <h3 className="text-xs font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <h3 className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-[0.18em] mb-3 flex items-center gap-1.5">
                         Data Source
                         <HelpTooltip title="Uploading your own data" position="left-0 top-6">
                             Upload a CSV or Excel export of receipts from your POS (iiko, R-Keeper, etc.). It needs one row per item sold, with columns for check ID, date/time, item name, price, and quantity (category is optional). Column names are matched automatically in English or Russian. No data of your own? Pick a simulation preset below.
                         </HelpTooltip>
                     </h3>
                     <div className="space-y-2">
-                        <label className="w-full flex items-center justify-between bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] px-4 py-2.5 rounded-xl hover:border-[var(--color-brand-accent)] transition-colors text-sm font-semibold cursor-pointer relative overflow-hidden">
+                        <label className="btn-outline-grad w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold cursor-pointer relative overflow-hidden">
                             <span className="flex items-center gap-2">
-                                <Upload size={16} className="text-[var(--color-brand-accent)]"/> 
+                                <Upload size={16} className="text-[var(--color-brand-accent)]"/>
                                 {isUploading ? 'Uploading...' : 'Upload CSV'}
                             </span>
                             <input type="file" accept=".csv, .xlsx, .xls" className="hidden" onChange={handleFileUpload} disabled={isUploading || seedMutation.isPending} />
                         </label>
-                        {uploadMessage && <p className="text-[10px] text-emerald-400 mt-1">{uploadMessage}</p>}
-                        
+                        {uploadMessage && <p className="text-[10px] text-[var(--color-brand-emerald)] mt-1">{uploadMessage}</p>}
+
                         <div className="mt-4">
-                            <label className="text-xs text-[var(--color-brand-muted)] mb-2 block">Or use simulation preset:</label>
-                            <select 
-                                value={activePreset} 
+                            <label className="text-[11px] text-[var(--color-brand-muted)] mb-2 block">Or use a simulation preset:</label>
+                            <select
+                                value={activePreset}
                                 onChange={handlePresetChange}
                                 disabled={seedMutation.isPending}
-                                className="w-full bg-[#0b0f19] border border-[var(--color-brand-border)] rounded-xl px-3 py-2 text-sm text-[var(--color-brand-text)] outline-none focus:border-[var(--color-brand-accent)] disabled:opacity-50"
+                                className="w-full bg-[var(--color-brand-bg)] border border-[var(--border-soft)] rounded-xl px-3 py-2.5 text-sm text-[var(--color-brand-text)] outline-none focus:border-[var(--color-brand-accent)] transition-colors disabled:opacity-50 cursor-pointer"
                             >
                                 {PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
-                            {seedMutation.isPending && <p className="text-xs text-[var(--color-brand-accent)] mt-2 animate-pulse">Generating realistic data...</p>}
+                            {seedMutation.isPending && <p className="text-xs text-[var(--color-brand-accent)] mt-2 animate-pulse">Generating realistic data…</p>}
                             {!seedMutation.isPending && seedStatus?.in_progress && (
-                                <p className="text-xs text-emerald-400 mt-2 animate-pulse">Loading full year of history in background...</p>
+                                <p className="text-xs text-[var(--color-brand-emerald)] mt-2 animate-pulse">Loading full year of history in background…</p>
                             )}
                         </div>
                     </div>
                 </div>
 
                 <div>
-                    <h3 className="text-xs font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-3">Modules</h3>
-                    <nav className="space-y-1">
-                        <button onClick={() => setActiveTab('forecast')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-semibold ${activeTab === 'forecast' ? 'bg-[var(--color-brand-accent)] text-white' : 'hover:bg-[#1e293b] text-[var(--color-brand-muted)] hover:text-white'}`}>
-                            <TrendingUp size={18} /> Sales & Forecast
-                        </button>
-                        <button onClick={() => setActiveTab('menu')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-semibold ${activeTab === 'menu' ? 'bg-[var(--color-brand-accent)] text-white' : 'hover:bg-[#1e293b] text-[var(--color-brand-muted)] hover:text-white'}`}>
-                            <Pizza size={18} /> Menu Engineering
-                        </button>
-                        <button onClick={() => setActiveTab('cross')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-semibold ${activeTab === 'cross' ? 'bg-[var(--color-brand-accent)] text-white' : 'hover:bg-[#1e293b] text-[var(--color-brand-muted)] hover:text-white'}`}>
-                            <Network size={18} /> Cross-Sales & Combos
-                        </button>
+                    <h3 className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-[0.18em] mb-3">Modules</h3>
+                    <nav className="space-y-1.5">
+                        {[
+                            { id: 'forecast', icon: TrendingUp, label: 'Sales & Forecast' },
+                            { id: 'menu', icon: Pizza, label: 'Menu Engineering' },
+                            { id: 'cross', icon: Network, label: 'Cross-Sales & Combos' },
+                        ].map((m) => {
+                            const active = activeTab === m.id;
+                            return (
+                                <button
+                                    key={m.id}
+                                    onClick={() => setActiveTab(m.id)}
+                                    className={`group relative w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-semibold ${
+                                        active
+                                            ? 'btn-accent text-white'
+                                            : 'text-[var(--color-brand-muted)] hover:text-white hover:bg-white/5'
+                                    }`}
+                                >
+                                    {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-white/80" />}
+                                    <m.icon size={18} className={active ? 'text-white' : 'text-[var(--color-brand-muted)] group-hover:text-[var(--color-brand-accent)] transition-colors'} />
+                                    {m.label}
+                                </button>
+                            );
+                        })}
                     </nav>
                 </div>
             </div>
         </div>
 
-        <div className="p-4 border-t border-[var(--color-brand-border)] relative">
-            <span className="absolute top-1.5 right-2 z-30">
-                <HelpTooltip title="What's in the report" position="bottom-7 right-0">
-                    A one-page PDF summary of the currently selected venue: headline KPIs (revenue, orders, average check), the 7-day demand forecast, the menu engineering breakdown (Stars / Workhorses / Puzzles / Dogs), and the top cross-sell combos. Handy for sharing the snapshot without opening the dashboard.
-                </HelpTooltip>
-            </span>
-            <button onClick={handleDownloadPDF} className="w-full flex items-center justify-center gap-2 bg-[#1e293b] border border-[var(--color-brand-border)] px-4 py-3 rounded-xl hover:bg-[var(--color-brand-card)] transition-colors text-sm font-bold text-[var(--color-brand-muted)] whitespace-nowrap">
-                <FileDown size={16} /> Generate PDF Report
-            </button>
+        <div className="p-4 border-t border-[var(--border-soft)] space-y-3">
+            <div className="relative">
+                <span className="absolute top-1.5 right-2 z-30">
+                    <HelpTooltip title="What's in the report" position="bottom-7 right-0">
+                        A one-page PDF summary of the currently selected venue: headline KPIs (revenue, orders, average check), the 7-day demand forecast, the menu engineering breakdown (Stars / Workhorses / Puzzles / Dogs), and the top cross-sell combos. Handy for sharing the snapshot without opening the dashboard.
+                    </HelpTooltip>
+                </span>
+                <button onClick={handleDownloadPDF} className="btn-outline-grad w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-[var(--color-brand-muted)] hover:text-white whitespace-nowrap transition-colors">
+                    <FileDown size={16} /> Generate PDF Report
+                </button>
+            </div>
+            <div className="flex items-center justify-center gap-2 text-[10px] text-[var(--color-brand-faint)]">
+                <span className="online-dot" /> Backend live · models trained
+            </div>
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        
-        <header className="h-20 border-b border-[var(--color-brand-border)] bg-[var(--color-brand-bg)] flex items-center justify-between px-8 flex-shrink-0">
-            <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">
-                    {activeTab === 'forecast' && 'Sales Forecasting & Anomaly Detection'}
-                    {activeTab === 'menu' && 'Menu Engineering Matrix (BCG)'}
-                    {activeTab === 'cross' && 'Cross-Sales & Combo Constructor'}
+      <main className="relative z-10 flex-1 flex flex-col h-screen overflow-hidden">
+
+        <header className="border-b border-[var(--border-soft)] flex items-center justify-between px-8 py-5 flex-shrink-0">
+            <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                    <Sparkles size={12} className="text-[var(--color-brand-violet)]" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-gradient-accent">AI Analytics Platform</span>
+                </div>
+                <h2 className="text-2xl font-extrabold font-display text-white tracking-tight truncate">
+                    {TAB_META[activeTab]?.title}
                 </h2>
-                <p className="text-xs text-[var(--color-brand-muted)] mt-1">Currently analyzing: <span className="font-semibold text-emerald-400">{activePreset}</span></p>
+                <p className="text-xs text-[var(--color-brand-muted)] mt-1 truncate">{TAB_META[activeTab]?.subtitle}</p>
+            </div>
+            <div className="hidden lg:flex items-center gap-3 flex-shrink-0">
+                {modelInfo?.model && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass text-[11px] font-semibold text-[var(--color-brand-muted)]">
+                        <Cpu size={13} className="text-[var(--color-brand-cyan)]" /> {modelInfo.model}
+                    </span>
+                )}
+                <span className="flex items-center gap-2 px-3 py-1.5 rounded-full glass text-[11px] font-semibold text-[var(--color-brand-text)]">
+                    <span className="online-dot" /> {activePreset}
+                </span>
             </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 xl:grid-cols-3 gap-8">
-            
-            <section className="xl:col-span-2 flex flex-col gap-8 min-w-0">
-                
-                {/* Real KPI Data */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] rounded-[16px] p-5 shadow-sm">
-                        <div className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider">Total Revenue</div>
-                        <div className="text-2xl font-extrabold text-white mt-1">
-                            {kpiReady ? `$${(Number(stats.total_revenue) / 1000).toFixed(1)}k` : '...'}
+        <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 xl:grid-cols-3 gap-7">
+
+            <section className="xl:col-span-2 flex flex-col gap-7 min-w-0">
+
+                {/* KPI cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {kpis.map((kpi, i) => (
+                        <div
+                            key={kpi.key}
+                            className="glass-card hoverable rounded-2xl p-5 overflow-hidden relative animate-fade-up"
+                            style={{ animationDelay: `${i * 70}ms` }}
+                        >
+                            <span className="absolute top-0 left-5 right-5 h-px accent-rule opacity-70" />
+                            <div className="flex items-center justify-between mb-3">
+                                <span
+                                    className="w-9 h-9 rounded-xl flex items-center justify-center"
+                                    style={{ background: `${kpi.accent}1f`, color: kpi.accent, boxShadow: `0 0 18px -4px ${kpi.accent}66` }}
+                                >
+                                    <kpi.icon size={17} />
+                                </span>
+                                {kpi.key === 'rev' && forecastDays.length > 0 && (
+                                    <span className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${forecastTrendPct >= 0 ? 'text-[var(--color-brand-emerald)] bg-emerald-500/10' : 'text-[var(--color-brand-rose)] bg-rose-500/10'}`}>
+                                        {forecastTrendPct >= 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+                                        {Math.abs(forecastTrendPct).toFixed(0)}%
+                                    </span>
+                                )}
+                            </div>
+                            <div className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-[0.14em]">{kpi.label}</div>
+                            <div className="text-[26px] leading-tight font-extrabold font-display text-white mt-1 tabular-nums">
+                                {kpiReady ? <AnimatedNumber value={kpi.value} format={kpi.format} /> : <span className="skeleton inline-block w-20 h-7 align-middle" />}
+                            </div>
+                            <div className="text-[10px] text-[var(--color-brand-faint)] mt-1">{kpi.sub}</div>
                         </div>
-                    </div>
-                    <div className="bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] rounded-[16px] p-5 shadow-sm">
-                        <div className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider">Total Orders</div>
-                        <div className="text-2xl font-extrabold text-white mt-1">
-                            {kpiReady ? Number(stats.total_orders).toLocaleString() : '...'}
-                        </div>
-                    </div>
-                    <div className="bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] rounded-[16px] p-5 shadow-sm">
-                        <div className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider">Avg Check</div>
-                        <div className="text-2xl font-extrabold text-white mt-1">
-                            {kpiReady ? `$${Number(stats.avg_check).toFixed(2)}` : '...'}
-                        </div>
-                    </div>
-                    <div className="bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] rounded-[16px] p-5 shadow-sm">
-                        <div className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider">Avg Items/Order</div>
-                        <div className="text-2xl font-extrabold text-white mt-1">
-                            {kpiReady ? Number(stats.avg_items_per_check).toFixed(1) : '...'}
-                        </div>
-                    </div>
+                    ))}
                 </div>
 
-                <div className="bg-[var(--color-brand-card)] border border-[var(--color-brand-border)] rounded-[20px] p-6 shadow-lg min-h-[500px] flex flex-col">
-                    
+                <div className="glass-card rounded-3xl p-6 shadow-lg min-h-[500px] flex flex-col animate-fade-up" style={{ animationDelay: '120ms' }}>
+
                     {activeTab === 'forecast' && (
                         <>
                             <div className="mb-4 flex items-start justify-between gap-4 flex-wrap">
@@ -529,11 +636,11 @@ function App() {
                                         {modelInfo?.model && (
                                             <div className="group relative inline-flex">
                                                 <HelpCircle size={15} className="text-[var(--color-brand-muted)] cursor-help hover:text-white transition-colors" />
-                                                <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute left-0 top-6 z-20 w-72 bg-[#0b0f19] border border-[var(--color-brand-border)] rounded-xl p-3 shadow-2xl text-left">
+                                                <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute left-0 top-6 z-20 w-72 glass-card rounded-xl p-3 shadow-2xl text-left">
                                                     <p className="text-xs font-bold text-white mb-1">How we calculated this: {modelInfo.model}</p>
                                                     <p className="text-[11px] text-[var(--color-brand-muted)] leading-relaxed">{modelInfo.description}</p>
                                                     {modelInfo.validation_rmse != null && (
-                                                        <p className="text-[11px] text-emerald-400 mt-2">
+                                                        <p className="text-[11px] text-[var(--color-brand-emerald)] mt-2">
                                                             Picked automatically: lowest validation error (${modelInfo.validation_rmse.toFixed(2)}) over the last {modelInfo.validated_on_days} days, vs. Ridge/Random Forest/XGBoost/LightGBM.
                                                         </p>
                                                     )}
@@ -545,14 +652,14 @@ function App() {
                                         Solid area = actual daily revenue. Dashed line = next 7 days predicted by the model.
                                     </p>
                                 </div>
-                                <div className="flex gap-1 bg-[#111827] border border-[var(--color-brand-border)] rounded-lg p-1 flex-shrink-0">
+                                <div className="flex gap-1 glass rounded-xl p-1 flex-shrink-0">
                                     {HISTORY_RANGES.map((range) => (
                                         <button
                                             key={range.label}
                                             onClick={() => setHistoryDays(range.days)}
-                                            className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
+                                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                                                 historyDays === range.days
-                                                    ? 'bg-[var(--color-brand-accent)] text-white'
+                                                    ? 'btn-accent text-white'
                                                     : 'text-[var(--color-brand-muted)] hover:text-white'
                                             }`}
                                         >
@@ -563,44 +670,49 @@ function App() {
                             </div>
                             <div className="flex-1 w-full flex flex-col gap-5 min-h-0">
                                 {chartLoading || chartData.length === 0 ? (
-                                    <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)] gap-2">
-                                        <BarChart3 size={18} className="animate-pulse" />
-                                        {seedStatus?.in_progress ? 'Preparing data & training models…' : 'Loading metrics…'}
+                                    <div className="flex-1 flex flex-col items-center justify-center text-[var(--color-brand-muted)] gap-3">
+                                        <BarChart3 size={22} className="text-[var(--color-brand-accent)] animate-pulse" />
+                                        <span className="text-sm">{seedStatus?.in_progress ? 'Preparing data & training models…' : 'Loading metrics…'}</span>
+                                        <div className="w-full max-w-md space-y-2 mt-2">
+                                            <div className="skeleton h-2.5 w-full" />
+                                            <div className="skeleton h-2.5 w-4/5" />
+                                            <div className="skeleton h-2.5 w-2/3" />
+                                        </div>
                                     </div>
                                 ) : (
                                     <>
                                         <div className="flex-1 min-h-[280px]">
                                             <ResponsiveContainer width="100%" height="100%">
-                                                <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                                <AreaChart data={chartData} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
                                                 <defs>
                                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                                    <stop offset="5%" stopColor={C.indigo} stopOpacity={0.55}/>
+                                                    <stop offset="95%" stopColor={C.indigo} stopOpacity={0}/>
                                                     </linearGradient>
                                                 </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" vertical={false} />
+                                                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
                                                 <XAxis
                                                     dataKey="name"
-                                                    stroke="#94a3b8"
-                                                    tick={{fill: '#94a3b8', fontSize: 12}}
+                                                    stroke={C.axis}
+                                                    tick={{fill: C.axis, fontSize: 12}}
                                                     tickLine={false}
                                                     axisLine={false}
                                                     minTickGap={40}
                                                     interval="preserveStartEnd"
                                                 />
-                                                <YAxis stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
-                                                <Tooltip content={<CustomForecastTooltip />} />
+                                                <YAxis stroke={C.axis} tick={{fill: C.axis, fontSize: 12}} tickLine={false} axisLine={false} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
+                                                <Tooltip content={<CustomForecastTooltip />} cursor={{ stroke: C.indigo, strokeOpacity: 0.3 }} />
 
-                                                <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Actual Revenue" />
-                                                <Line type="monotone" dataKey="expected" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} name="AI Forecast" />
+                                                <Area type="monotone" dataKey="revenue" stroke={C.indigo} strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Actual Revenue" style={{ filter: 'drop-shadow(0 3px 8px rgba(110,123,255,0.35))' }} activeDot={{ r: 5, fill: C.indigo, stroke: '#fff', strokeWidth: 1.5 }} />
+                                                <Line type="monotone" dataKey="expected" stroke={C.violet} strokeWidth={2.2} strokeDasharray="5 5" dot={false} name="AI Forecast" />
                                                 {/* Draggable range selector (like a trading chart) - drag the
                                                     handles to zoom into any window within the selected period. */}
                                                 <Brush
                                                     dataKey="name"
                                                     height={22}
                                                     travellerWidth={9}
-                                                    stroke="#3b82f6"
-                                                    fill="#0b0f19"
+                                                    stroke={C.indigo}
+                                                    fill="rgba(110,123,255,0.05)"
                                                     tickFormatter={() => ''}
                                                 />
                                                 </AreaChart>
@@ -611,13 +723,14 @@ function App() {
                                             the forecast is empty - show a placeholder instead of a misleading
                                             $0.0k / -100%. */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
-                                            <div className="bg-[#111827] border border-[var(--color-brand-border)] rounded-xl p-3">
+                                            <div className="glass rounded-2xl p-4">
                                                 <p className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-1">Next 7 days forecast</p>
-                                                <p className="text-lg font-extrabold text-white">{forecastDays.length > 0 ? `$${(next7Total / 1000).toFixed(1)}k` : '…'}</p>
+                                                <p className="text-xl font-extrabold font-display text-white">{forecastDays.length > 0 ? `$${(next7Total / 1000).toFixed(1)}k` : '…'}</p>
                                             </div>
-                                            <div className="bg-[#111827] border border-[var(--color-brand-border)] rounded-xl p-3">
+                                            <div className="glass rounded-2xl p-4">
                                                 <p className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase tracking-wider mb-1">vs. last 7 days</p>
-                                                <p className={`text-lg font-extrabold ${forecastDays.length === 0 ? 'text-[var(--color-brand-muted)]' : forecastTrendPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                <p className={`text-xl font-extrabold font-display flex items-center gap-1 ${forecastDays.length === 0 ? 'text-[var(--color-brand-muted)]' : forecastTrendPct >= 0 ? 'text-[var(--color-brand-emerald)]' : 'text-[var(--color-brand-rose)]'}`}>
+                                                    {forecastDays.length > 0 && (forecastTrendPct >= 0 ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />)}
                                                     {forecastDays.length > 0 ? `${forecastTrendPct >= 0 ? '+' : ''}${forecastTrendPct.toFixed(1)}%` : '…'}
                                                 </p>
                                             </div>
@@ -641,7 +754,7 @@ function App() {
                             </div>
                             <div className="flex-1 w-full flex flex-col gap-5 min-h-0">
                                 {menuLoading ? (
-                                    <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)]">Analyzing menu clusters...</div>
+                                    <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)] gap-2"><Pizza size={18} className="animate-pulse text-[var(--color-brand-accent)]" /> Analyzing menu clusters…</div>
                                 ) : menuData.length === 0 ? (
                                     <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)] text-sm text-center gap-2">
                                         {seedStatus?.in_progress ? (
@@ -653,26 +766,26 @@ function App() {
                                         <div className="flex-1 min-h-[320px]">
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <ScatterChart margin={{ top: 10, right: 20, bottom: 30, left: 10 }}>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                                    <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
 
                                                     {/* Quadrant background tints */}
-                                                    <ReferenceArea x1={0} x2={menuMeanX} y1={menuMeanY} y2={menuMaxY} fill="#cbd5e1" fillOpacity={0.04} stroke="none" />
-                                                    <ReferenceArea x1={menuMeanX} x2={menuMaxX} y1={menuMeanY} y2={menuMaxY} fill="#34d399" fillOpacity={0.07} stroke="none" />
-                                                    <ReferenceArea x1={0} x2={menuMeanX} y1={0} y2={menuMeanY} fill="#f87171" fillOpacity={0.06} stroke="none" />
-                                                    <ReferenceArea x1={menuMeanX} x2={menuMaxX} y1={0} y2={menuMeanY} fill="#3b82f6" fillOpacity={0.06} stroke="none" />
+                                                    <ReferenceArea x1={0} x2={menuMeanX} y1={menuMeanY} y2={menuMaxY} fill={C.slate} fillOpacity={0.05} stroke="none" />
+                                                    <ReferenceArea x1={menuMeanX} x2={menuMaxX} y1={menuMeanY} y2={menuMaxY} fill={C.emerald} fillOpacity={0.08} stroke="none" />
+                                                    <ReferenceArea x1={0} x2={menuMeanX} y1={0} y2={menuMeanY} fill={C.rose} fillOpacity={0.07} stroke="none" />
+                                                    <ReferenceArea x1={menuMeanX} x2={menuMaxX} y1={0} y2={menuMeanY} fill={C.indigo} fillOpacity={0.07} stroke="none" />
 
                                                     <XAxis
                                                         type="number" dataKey="popularity_sales" name="Popularity"
                                                         domain={[0, menuMaxX]}
-                                                        stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false}
-                                                        label={{ value: 'Popularity (units sold)', position: 'insideBottom', offset: -20, fill: '#64748b', fontSize: 11 }}
+                                                        stroke={C.axis} tick={{ fill: C.axis, fontSize: 12 }} tickLine={false} axisLine={false}
+                                                        label={{ value: 'Popularity (units sold)', position: 'insideBottom', offset: -20, fill: C.axis, fontSize: 11 }}
                                                     />
                                                     <YAxis
                                                         type="number" dataKey="avg_margin" name="Margin"
                                                         domain={[0, menuMaxY]}
-                                                        stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false}
+                                                        stroke={C.axis} tick={{ fill: C.axis, fontSize: 12 }} tickLine={false} axisLine={false}
                                                         tickFormatter={(value) => `$${value}`}
-                                                        label={{ value: 'Avg margin ($)', angle: -90, position: 'insideLeft', fill: '#64748b', fontSize: 11 }}
+                                                        label={{ value: 'Avg margin ($)', angle: -90, position: 'insideLeft', fill: C.axis, fontSize: 11 }}
                                                     />
                                                     <ZAxis type="number" range={[120, 280]} />
                                                     <Tooltip content={<CustomMenuTooltip />} cursor={{ strokeDasharray: '3 3' }} />
@@ -680,10 +793,10 @@ function App() {
                                                     <ReferenceLine x={menuMeanX} stroke="#475569" strokeDasharray="5 5" opacity={0.6} />
                                                     <ReferenceLine y={menuMeanY} stroke="#475569" strokeDasharray="5 5" opacity={0.6} />
 
-                                                    <Scatter name="Stars" data={menuData.filter((d) => d.cluster_label === 'Stars')} fill="#34d399" stroke="#0b0f19" strokeWidth={1} />
-                                                    <Scatter name="Workhorses" data={menuData.filter((d) => d.cluster_label === 'Workhorses')} fill="#3b82f6" stroke="#0b0f19" strokeWidth={1} />
-                                                    <Scatter name="Puzzles" data={menuData.filter((d) => d.cluster_label === 'Puzzles')} fill="#cbd5e1" stroke="#0b0f19" strokeWidth={1} />
-                                                    <Scatter name="Dogs" data={menuData.filter((d) => d.cluster_label === 'Dogs')} fill="#f87171" stroke="#0b0f19" strokeWidth={1} />
+                                                    <Scatter name="Stars" data={menuData.filter((d) => d.cluster_label === 'Stars')} fill={C.emerald} stroke="#070810" strokeWidth={1} />
+                                                    <Scatter name="Workhorses" data={menuData.filter((d) => d.cluster_label === 'Workhorses')} fill={C.indigo} stroke="#070810" strokeWidth={1} />
+                                                    <Scatter name="Puzzles" data={menuData.filter((d) => d.cluster_label === 'Puzzles')} fill={C.slate} stroke="#070810" strokeWidth={1} />
+                                                    <Scatter name="Dogs" data={menuData.filter((d) => d.cluster_label === 'Dogs')} fill={C.rose} stroke="#070810" strokeWidth={1} />
                                                 </ScatterChart>
                                             </ResponsiveContainer>
                                         </div>
@@ -691,9 +804,9 @@ function App() {
                                         {/* Quadrant legend */}
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-shrink-0">
                                             {MENU_QUADRANTS.map((q) => (
-                                                <div key={q.label} className="bg-[#111827] border border-[var(--color-brand-border)] rounded-xl p-3">
+                                                <div key={q.label} className="glass rounded-2xl p-3 hoverable">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: q.color }}></span>
+                                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: q.color, boxShadow: `0 0 10px -1px ${q.color}` }}></span>
                                                         <span className="text-xs font-bold text-white">{q.emoji} {q.label}</span>
                                                     </div>
                                                     <p className="text-[11px] text-[var(--color-brand-muted)] leading-snug">{q.desc}</p>
@@ -716,11 +829,11 @@ function App() {
                                     </HelpTooltip>
                                 </h3>
                                 <p className="text-xs text-[var(--color-brand-muted)] mt-1">
-                                    Ranked by lift: how many times more often items are bought together than random chance predicts. Green = real synergy, red = worse than chance - don't bundle.
+                                    Ranked by lift: how many times more often items are bought together than random chance predicts. Green = real synergy, red = worse than chance — don't bundle.
                                 </p>
                             </div>
                             {crossLoading ? (
-                                <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)]">Computing market basket analysis...</div>
+                                <div className="flex-1 flex items-center justify-center text-[var(--color-brand-muted)] gap-2"><Network size={18} className="animate-pulse text-[var(--color-brand-accent)]" /> Computing market basket analysis…</div>
                             ) : crossData.index.length === 0 ? (
                                 <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-brand-muted)] gap-2">
                                     {seedStatus?.in_progress ? (
@@ -732,7 +845,7 @@ function App() {
                                     <div className="flex flex-wrap gap-2 flex-shrink-0">
                                         <button
                                             onClick={() => setSelectedItemForCombo(null)}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${!selectedItemForCombo ? 'bg-[var(--color-brand-accent)] text-white border-[var(--color-brand-accent)] shadow-md' : 'bg-[#111827] text-[var(--color-brand-muted)] border-[var(--color-brand-border)] hover:border-gray-500 hover:text-white'}`}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${!selectedItemForCombo ? 'btn-accent text-white border-transparent' : 'glass text-[var(--color-brand-muted)] border-[var(--border-soft)] hover:text-white'}`}
                                         >
                                             {!selectedItemForCombo && <Check size={12} />}
                                             All Pairs
@@ -743,7 +856,7 @@ function App() {
                                                 <button
                                                     key={item}
                                                     onClick={() => setSelectedItemForCombo(item)}
-                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${isSelected ? 'bg-[var(--color-brand-accent)] text-white border-[var(--color-brand-accent)] shadow-md' : 'bg-[#111827] text-[var(--color-brand-muted)] border-[var(--color-brand-border)] hover:border-gray-500 hover:text-white'}`}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${isSelected ? 'btn-accent text-white border-transparent' : 'glass text-[var(--color-brand-muted)] border-[var(--border-soft)] hover:text-white'}`}
                                                 >
                                                     {isSelected && <Check size={12} />}
                                                     {item}
@@ -752,7 +865,7 @@ function App() {
                                         })}
                                     </div>
 
-                                    <div className="rounded-xl border border-[var(--color-brand-border)] bg-[#111827] divide-y divide-[var(--color-brand-border)]">
+                                    <div className="rounded-2xl border border-[var(--border-soft)] glass divide-y divide-[var(--border-soft)] overflow-hidden">
                                         {comboRows.length === 0 ? (
                                             <div className="flex items-center justify-center text-sm text-[var(--color-brand-muted)] p-6 text-center">
                                                 Not enough order history for a statistically meaningful combo {selectedItemForCombo ? `with ${selectedItemForCombo}` : ''}.
@@ -765,14 +878,14 @@ function App() {
                                                 const positive = row.lift >= 1;
                                                 const barWidth = Math.min(100, Math.abs(liftPct));
                                                 return (
-                                                    <div key={`${row.label}-${idx}`} className="flex items-center gap-4 px-4 py-2.5">
-                                                        <span className="text-[10px] font-bold text-[var(--color-brand-muted)] uppercase w-6 flex-shrink-0">{isSecondHalf ? '↓' : '#'}{rank}</span>
+                                                    <div key={`${row.label}-${idx}`} className="flex items-center gap-4 px-4 py-2.5 hover:bg-white/[0.03] transition-colors">
+                                                        <span className="text-[10px] font-bold text-[var(--color-brand-faint)] uppercase w-6 flex-shrink-0">{isSecondHalf ? '↓' : '#'}{rank}</span>
                                                         <span className="font-semibold text-sm text-[var(--color-brand-text)] flex-1 truncate">{row.label}</span>
-                                                        <span className="text-[10px] text-[var(--color-brand-muted)] flex-shrink-0 hidden md:inline">{row.support} orders</span>
-                                                        <div className="w-24 h-1.5 bg-[#1e293b] rounded-full overflow-hidden flex-shrink-0 hidden sm:block">
-                                                            <div className={`h-full rounded-full ${positive ? 'bg-emerald-400' : 'bg-rose-400'}`} style={{ width: `${barWidth}%` }}></div>
+                                                        <span className="text-[10px] text-[var(--color-brand-faint)] flex-shrink-0 hidden md:inline">{row.support} orders</span>
+                                                        <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden flex-shrink-0 hidden sm:block">
+                                                            <div className="h-full rounded-full" style={{ width: `${barWidth}%`, background: positive ? `linear-gradient(90deg, ${C.emerald}, #6ee7b7)` : `linear-gradient(90deg, ${C.rose}, #fda4af)` }}></div>
                                                         </div>
-                                                        <span className={`text-xs font-bold w-16 text-right flex-shrink-0 ${positive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                        <span className={`text-xs font-bold w-16 text-right flex-shrink-0 ${positive ? 'text-[var(--color-brand-emerald)]' : 'text-[var(--color-brand-rose)]'}`}>
                                                             {liftPct > 0 ? '+' : ''}{liftPct}%
                                                         </span>
                                                     </div>
@@ -788,7 +901,7 @@ function App() {
                 </div>
             </section>
 
-            <section className="xl:col-span-1 flex flex-col h-[calc(100vh-140px)] min-w-0">
+            <section className="xl:col-span-1 flex flex-col h-[calc(100vh-150px)] min-w-0 animate-fade-up" style={{ animationDelay: '180ms' }}>
                 <ChatInterface />
             </section>
 
