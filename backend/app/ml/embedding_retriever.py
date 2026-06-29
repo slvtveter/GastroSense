@@ -13,6 +13,7 @@ degrades gracefully to TF-IDF-only retrieval rather than breaking the chat.
 """
 from __future__ import annotations
 
+import hashlib
 import os
 from typing import List, Optional
 
@@ -38,6 +39,7 @@ class EmbeddingRetriever:
     def __init__(self) -> None:
         self.available = False
         self._doc_matrix: Optional[np.ndarray] = None  # (n_chunks, dim), L2-normalized
+        self._corpus_hash: Optional[str] = None  # content hash of the embedded corpus
         api_key = os.getenv("GEMINI_API_KEY")
         if genai and api_key:
             api_key = api_key.strip('"').strip("'")
@@ -70,14 +72,29 @@ class EmbeddingRetriever:
         return None
 
     def build(self, texts: List[str]) -> None:
-        """Embed and cache the corpus. Called on every index rebuild."""
+        """Embed and cache the corpus. Called on every index rebuild.
+
+        Startup re-triggers a rebuild several times in a row (lifespan refresh,
+        auto-seed, ML training), each with the same final ~20 chunks. Embedding
+        is the scarcest free-tier quota, so skip the API call when the corpus
+        content is unchanged - this collapses the startup storm to a single
+        embed and avoids the per-minute rate-limit 429s it used to trigger.
+        """
         if not self.available or not texts:
             self._doc_matrix = None
+            self._corpus_hash = None
             return
-        self._doc_matrix = self._embed(texts, task_type="retrieval_document")
-        if self._doc_matrix is not None:
+        new_hash = hashlib.sha256("\x00".join(texts).encode("utf-8")).hexdigest()
+        if new_hash == self._corpus_hash and self._doc_matrix is not None:
+            return  # corpus unchanged - reuse the cached embeddings
+        matrix = self._embed(texts, task_type="retrieval_document")
+        if matrix is not None:
+            self._doc_matrix = matrix
+            self._corpus_hash = new_hash
             logger.info("Dense index built: %s chunk embeddings (dim=%s).",
-                        self._doc_matrix.shape[0], self._doc_matrix.shape[1])
+                        matrix.shape[0], matrix.shape[1])
+        # On failure keep the previous matrix/hash (if any) so a transient quota
+        # error during a redundant rebuild doesn't wipe a working dense index.
 
     def search_scores(self, query: str) -> Optional[np.ndarray]:
         """Return a cosine-similarity score per chunk (aligned with build order),
