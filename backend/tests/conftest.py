@@ -26,6 +26,21 @@ engine = create_engine(
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+@pytest.fixture(autouse=True)
+def _disable_dense_retriever():
+    """Keep tests hermetic and fast: force the RAG pipeline onto its TF-IDF-only
+    fallback path so it never hits the live Gemini embeddings API (which would
+    make tests depend on network access and free-tier quota). This also doubles
+    as a regression check that retrieval degrades gracefully without embeddings.
+    """
+    from app.ml.embedding_retriever import embedding_retriever
+    saved_available, saved_matrix = embedding_retriever.available, embedding_retriever._doc_matrix
+    embedding_retriever.available = False
+    embedding_retriever._doc_matrix = None
+    yield
+    embedding_retriever.available, embedding_retriever._doc_matrix = saved_available, saved_matrix
+
+
 @pytest.fixture(name="db_session", scope="function")
 def fixture_db_session():
     """Create all tables in the SQLite database and yield a clean session per test."""

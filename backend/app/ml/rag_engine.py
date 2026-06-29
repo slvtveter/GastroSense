@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
+import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sqlalchemy import func, text
@@ -12,7 +13,20 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.logger import logger
+from app.ml.embedding_retriever import embedding_retriever
 from app.ml.market_basket import MIN_COMBO_SUPPORT, compute_associations
+
+# Hybrid retrieval weights. Dense (semantic) is trusted more because it
+# generalizes across paraphrases and languages; sparse TF-IDF sharpens exact
+# lexical/number matches the dense model can smear together.
+DENSE_WEIGHT = 0.6
+SPARSE_WEIGHT = 0.4
+# Below this raw TF-IDF cosine, the sparse retriever is treated as having found
+# nothing and is gated out of the fusion entirely. This is the key guard learned
+# from testing: Russian queries score ~0.0 against the English data chunks, so
+# min-max normalizing that noise would otherwise promote an arbitrary chunk to
+# rank 1. Real lexical hits score well above this (0.1-0.45 in tests).
+SPARSE_GATE = 0.05
 
 
 @dataclass(slots=True)
@@ -56,13 +70,43 @@ class RAGEngine:
         self._last_refresh_at = datetime.utcnow()
         logger.info("RAG index refreshed with %s chunks.", len(self._chunks))
 
+    @staticmethod
+    def _minmax(scores: np.ndarray) -> np.ndarray:
+        """Scale scores into [0, 1] so two retrievers on different scales can be
+        summed fairly. Constant input (e.g. all zeros) maps to all zeros."""
+        lo, hi = float(scores.min()), float(scores.max())
+        if hi - lo < 1e-12:
+            return np.zeros_like(scores)
+        return (scores - lo) / (hi - lo)
+
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         if not query.strip() or not self._chunks or self._matrix is None:
             return []
 
+        # --- Sparse retriever (TF-IDF) ---
         query_vector = self._vectorizer.transform([query])
-        scores = cosine_similarity(query_vector, self._matrix).flatten()
-        ranked_indices = scores.argsort()[::-1]
+        sparse_scores = cosine_similarity(query_vector, self._matrix).flatten()
+
+        # --- Dense retriever (Gemini embeddings), if available ---
+        dense_scores = embedding_retriever.search_scores(query)
+
+        if dense_scores is None or len(dense_scores) != len(self._chunks):
+            # Graceful degradation: no embeddings -> behave exactly like before.
+            fused = sparse_scores
+            mode = "sparse"
+        else:
+            dense_norm = self._minmax(dense_scores)
+            # Gate the sparse side: if its best hit is just noise (e.g. a Russian
+            # query vs English chunks), zero it out so dense fully takes over
+            # instead of fusing in a meaningless lexical ranking.
+            if float(sparse_scores.max()) < SPARSE_GATE:
+                sparse_norm = np.zeros_like(sparse_scores)
+            else:
+                sparse_norm = self._minmax(sparse_scores)
+            fused = DENSE_WEIGHT * dense_norm + SPARSE_WEIGHT * sparse_norm
+            mode = "hybrid"
+
+        ranked_indices = fused.argsort()[::-1]
 
         results: List[Dict[str, Any]] = []
         for index in ranked_indices:
@@ -74,7 +118,10 @@ class RAGEngine:
                     "title": chunk.title,
                     "text": chunk.text,
                     "metadata": chunk.metadata,
-                    "score": float(scores[index]),
+                    "score": float(fused[index]),
+                    "sparse_score": float(sparse_scores[index]),
+                    "dense_score": float(dense_scores[index]) if dense_scores is not None else None,
+                    "retrieval_mode": mode,
                 }
             )
             if len(results) >= top_k:
@@ -105,9 +152,13 @@ class RAGEngine:
 
         if not texts:
             self._matrix = None
+            embedding_retriever.build([])
             return
 
         self._matrix = self._vectorizer.fit_transform(texts)
+        # Build the dense index over the exact same chunk order, so sparse and
+        # dense score arrays stay index-aligned for fusion in search().
+        embedding_retriever.build(texts)
 
     def _load_static_chunks(self) -> List[KnowledgeChunk]:
         static_files: List[Path] = []
