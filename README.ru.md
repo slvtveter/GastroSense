@@ -16,7 +16,7 @@ GastroSense — дашборд ресторанной аналитики, кот
 
 ## Живое демо
 
-**[gastrosense-frontend.onrender.com](https://gastrosense-frontend.onrender.com)** — демо-данные подгружаются автоматически, ничего настраивать не нужно. ([Документация API](https://gastrosense-backend.onrender.com/docs))
+**[gastrosense-frontend-5viw.onrender.com](https://gastrosense-frontend-5viw.onrender.com)** — демо-данные подгружаются автоматически, ничего настраивать не нужно. ([Документация API](https://gastrosense-backend-oom9.onrender.com/docs))
 
 Оба сервиса работают на бесплатном тарифе Render, поэтому "засыпают" после ~15 минут без запросов — первый запрос после паузы может грузиться 30-60 секунд. Это особенность бесплатного хостинга, не баг.
 
