@@ -18,12 +18,14 @@ from app.logger import logger
 router = APIRouter(prefix="/upload", tags=["upload"])
 
 # Seed the recent window instantly (snappy first paint), then extend to a
-# longer history in the background - more history meaningfully improves the
-# forecast, but generating and querying it costs memory. On a memory-limited
-# host (e.g. Render's 512 MB free tier) FULL_SEED_DAYS is set lower via env so
-# the dataset + ML training fit in RAM; locally it defaults to a full year.
+# longer history in the background - more history slightly sharpens the forecast,
+# but generating, re-querying and retraining on it costs memory and CPU. The
+# dashboard's longest range is 90 days, so 120 days (90-day view + forecast lag
+# context) is all that's ever visible; seeding a full year just added a long,
+# CPU-pegging tail that made every preset switch feel like it "loads forever"
+# without changing anything on screen. Override via env if you really want more.
 QUICK_SEED_DAYS = int(os.getenv("QUICK_SEED_DAYS", "30"))
-FULL_SEED_DAYS = int(os.getenv("FULL_SEED_DAYS", "365"))
+FULL_SEED_DAYS = int(os.getenv("FULL_SEED_DAYS", "120"))
 
 _seed_status: dict = {
     "in_progress": False,
@@ -241,8 +243,9 @@ def _train_and_extend_background(preset_name: str, quick_window_start: datetime)
     db = SessionLocal()
     try:
         # 1. Quick-window training so the dashboard fills in fast.
+        #    (run_async_ml_training already refreshes the RAG corpus at the end,
+        #    so no separate refresh_from_db call is needed here.)
         run_async_ml_training(db)
-        rag_engine.refresh_from_db(db)
 
         # 2. Extend the older history behind the quick window.
         seed_demo_data(
@@ -253,9 +256,9 @@ def _train_and_extend_background(preset_name: str, quick_window_start: datetime)
             clean_first=False,
         )
 
-        # 3. Retrain on the full history and refresh RAG with the richer data.
+        # 3. Retrain on the full history (this also refreshes RAG with the
+        #    richer data as its final step).
         run_async_ml_training(db)
-        rag_engine.refresh_from_db(db)
         logger.info(f"Background seed + training completed for preset '{preset_name}'.")
     except Exception as e:
         logger.error(f"Background seed/training failed: {e}")
@@ -271,13 +274,18 @@ def get_seed_status():
 
 
 @router.post("/seed-demo")
-async def seed_demo(
+def seed_demo(
     background_tasks: BackgroundTasks,
     preset_name: str = "Casual Coffee Shop",
     db: Session = Depends(get_db)
 ):
     """Seed the last 30 days instantly so the dashboard has something to show
-    right away, then extend to a full year of history in the background."""
+    right away, then extend to a longer history in the background.
+
+    Declared as a sync `def` on purpose: the quick seed below is blocking work,
+    and a sync endpoint runs in Starlette's threadpool, so it doesn't stall the
+    event loop (and the dashboard's concurrent /stats, /history polls) the way an
+    `async def` running blocking code inline would."""
     try:
         now = datetime.now()
         # Quick 30-day seed only - just the DB writes, no model training. This

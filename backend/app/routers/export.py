@@ -54,6 +54,15 @@ def export_pdf_report(preset_name: str = "Analytics Report", db: Session = Depen
     total_qty = db.query(func.sum(models.OrderItem.quantity)).scalar() or 0
     avg_items_per_check = round(total_qty / total_orders, 1) if total_orders > 0 else 0.0
 
+    # Real covered span instead of a hardcoded number (the window is configurable
+    # now - 120 days by default, but an uploaded CSV can be any range).
+    span = db.query(func.min(models.Order.timestamp), func.max(models.Order.timestamp)).first()
+    if span and span[0] and span[1]:
+        days_covered = (span[1].date() - span[0].date()).days + 1
+        overview_title = f"Performance Overview (Last {days_covered} Days)"
+    else:
+        overview_title = "Performance Overview"
+
     # 2. Fetch Menu Analysis
     menu_rows = [m.__dict__ for m in crud.get_menu_analysis(db)]
 
@@ -73,7 +82,7 @@ def export_pdf_report(preset_name: str = "Analytics Report", db: Session = Depen
     pdf.ln(6)
 
     # KPI
-    pdf.section_title("Performance Overview (180 Days)")
+    pdf.section_title(overview_title)
     pdf.bullet(f"Total Revenue: {_fmt_rub(total_revenue)}")
     pdf.bullet(f"Total Orders: {total_orders:,}")
     pdf.bullet(f"Average Check: {_fmt_rub(avg_check)}")

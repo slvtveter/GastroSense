@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from starlette.concurrency import run_in_threadpool
 from app.ml.rag_engine import rag_engine
 try:
     import google.generativeai as genai
@@ -53,7 +54,14 @@ class AgentManager:
         # The corpus is now ~7 rollup chunks total (one per data domain)
         # instead of ~90 per-row chunks, so top_k=8 effectively returns
         # everything relevant instead of gambling on which 5 chunks rank highest.
-        context = rag_engine.build_context(query, top_k=8)
+        #
+        # build_context makes a blocking embedding API call, and the Gemini
+        # generate_content calls below are blocking network I/O too. This method
+        # runs on the event loop (the /chat endpoint awaits it), so every blocking
+        # call goes through run_in_threadpool - otherwise a single in-flight chat
+        # request stalls ALL concurrent requests (including the dashboard's
+        # polling) for up to ~12s per model attempt.
+        context = await run_in_threadpool(rag_engine.build_context, query, top_k=8)
 
         if not self.models:
             return (
@@ -88,7 +96,9 @@ class AgentManager:
         last_error: Exception | None = None
         for index, model in enumerate(self.models):
             try:
-                response = model.generate_content(prompt, request_options={"timeout": 12})
+                response = await run_in_threadpool(
+                    model.generate_content, prompt, request_options={"timeout": 12}
+                )
                 return response.text or "Couldn't generate a response."
             except Exception as e:
                 last_error = e

@@ -70,6 +70,15 @@ def fixture_client(db_session, monkeypatch):
     import app.routers.upload as upload_module
     monkeypatch.setattr(upload_module, "SessionLocal", lambda: db_session)
 
+    # The cold-start self-heal (ensure_seeded_on_startup) spawns a daemon thread
+    # that runs seed_demo_data on its own SessionLocal(). In tests that
+    # SessionLocal is monkeypatched to the single shared in-memory session, so
+    # the daemon thread would race the test's own explicit seed on the same
+    # (non-thread-safe) Session - corrupting it into 500s and leaking thousands
+    # of rows into later tests. The tests drive seeding explicitly through the
+    # API, so disable the startup auto-seed for the duration of the test client.
+    monkeypatch.setattr(upload_module, "ensure_seeded_on_startup", lambda: None)
+
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

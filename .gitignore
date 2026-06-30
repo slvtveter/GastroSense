@@ -32,4 +32,7 @@ backend/app/ml/models/
 *.log
 mysql_data/
 backend/analytics.db
+# WAL mode adds -wal/-shm sidecar files next to the SQLite DB.
+backend/analytics.db-wal
+backend/analytics.db-shm
 backend/chroma_db/

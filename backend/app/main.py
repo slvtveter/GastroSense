@@ -1,16 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from dotenv import load_dotenv
 from app.database import engine, Base, SessionLocal
 from app.routers import upload, analytics, ml, export
 from app.config import settings
 from app.ml.rag_engine import rag_engine
-
-# Load environment variables from .env file
-from pathlib import Path
-env_path = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(dotenv_path=env_path)
+# Note: .env is loaded in app.config (imported above via app.database), so env
+# vars are available before any module reads them at import time. See config.py.
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

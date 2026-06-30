@@ -191,6 +191,19 @@ function App() {
   const [selectedItemForCombo, setSelectedItemForCombo] = useState<string | null>(null);
   const [historyDays, setHistoryDays] = useState(30);
 
+  // Tracks whether the background seed/training is still running. Declared
+  // before the data queries below so each one can keep polling for as long as
+  // seeding is in progress - that's what makes a preset switch fill in the
+  // forecast/menu/combos within seconds (off the fast 30-day window) and then
+  // refine smoothly as the longer history lands, instead of sitting on stale
+  // "…" placeholders until the whole background job finishes.
+  const { data: seedStatus } = useQuery<SeedStatus>({
+      queryKey: ['seed-status'],
+      queryFn: fetchSeedStatus,
+      refetchInterval: (query) => (query.state.data?.in_progress ? 3000 : false),
+  });
+  const isSeeding = Boolean(seedStatus?.in_progress);
+
   // Queries. keepPreviousData stops the KPI cards from blanking to undefined
   // while a preset switch reseeds and refetches - they keep showing the last
   // good numbers until the new ones arrive.
@@ -198,11 +211,12 @@ function App() {
       queryKey: ['stats'],
       queryFn: fetchStats,
       placeholderData: keepPreviousData,
-      // While the DB is still empty (cold-started backend seeding itself), keep
-      // polling so the dashboard fills in the moment data is ready.
+      // Keep polling while the DB is still empty (cold-started backend seeding
+      // itself) OR while a background seed is extending the history, so the KPIs
+      // climb to their final values as more days land instead of jumping at the end.
       refetchInterval: (query) => {
           const d = query.state.data as any;
-          return (!d || Number(d.total_orders) === 0) ? 4000 : false;
+          return (!d || Number(d.total_orders) === 0 || isSeeding) ? 4000 : false;
       },
   });
   // Only treat the KPIs as ready when every field is a real, finite number, so
@@ -213,11 +227,15 @@ function App() {
   const { data: chartData = [], isLoading: chartLoading } = useQuery<ForecastPoint[]>({
       queryKey: ['forecast', historyDays],
       queryFn: () => fetchForecast(historyDays),
-      // Poll while there's no history yet so the chart fills in once the
-      // backend has seeded itself.
+      // Poll while there's no history yet AND while a seed is in progress. The
+      // merged array is non-empty as soon as history exists - but the forecast
+      // (dashed line + "next 7 days" cards) is filled in a moment later by the
+      // background training. Without the isSeeding clause this query would stop
+      // polling the instant history arrived and never pick the forecast up until
+      // the whole job ended - which is exactly why the cards sat on "…".
       refetchInterval: (query) => {
           const d = query.state.data as ForecastPoint[] | undefined;
-          return (!d || d.length === 0) ? 4000 : false;
+          return (!d || d.length === 0 || isSeeding) ? 4000 : false;
       },
   });
   const { data: modelInfo } = useQuery<ForecastModelInfo>({ queryKey: ['forecast-info'], queryFn: fetchForecastModelInfo });
@@ -226,7 +244,7 @@ function App() {
       queryFn: fetchMenu,
       refetchInterval: (query) => {
           const d = query.state.data as MenuItemPoint[] | undefined;
-          return (!d || d.length === 0) ? 4000 : false;
+          return (!d || d.length === 0 || isSeeding) ? 4000 : false;
       },
   });
   const { data: crossData = EMPTY_CROSS_SALES, isLoading: crossLoading } = useQuery<CrossSalesMatrix>({
@@ -234,7 +252,7 @@ function App() {
       queryFn: fetchCrossSales,
       refetchInterval: (query) => {
           const d = query.state.data as CrossSalesMatrix | undefined;
-          return (!d || d.index.length === 0) ? 4000 : false;
+          return (!d || d.index.length === 0 || isSeeding) ? 4000 : false;
       },
   });
 
@@ -324,15 +342,6 @@ function App() {
       setActivePreset(preset);
       seedMutation.mutate(preset);
   };
-
-  // The dashboard renders instantly off the fast 30-day seed; this polls
-  // whether the background seeding/training is still running, and refreshes all
-  // the data once it flips back to done.
-  const { data: seedStatus } = useQuery<SeedStatus>({
-      queryKey: ['seed-status'],
-      queryFn: fetchSeedStatus,
-      refetchInterval: (query) => (query.state.data?.in_progress ? 3000 : false),
-  });
 
   // Fallback auto-seed. The backend self-seeds on startup when its (ephemeral)
   // DB is empty, so normally this never fires. But if we ever observe an empty
@@ -438,7 +447,7 @@ function App() {
                             </select>
                             {seedMutation.isPending && <p className="text-xs text-[var(--color-brand-accent)] mt-2 animate-pulse">Generating realistic data...</p>}
                             {!seedMutation.isPending && seedStatus?.in_progress && (
-                                <p className="text-xs text-emerald-400 mt-2 animate-pulse">Loading full year of history in background...</p>
+                                <p className="text-xs text-emerald-400 mt-2 animate-pulse">Loading more history & refining the forecast…</p>
                             )}
                         </div>
                     </div>
